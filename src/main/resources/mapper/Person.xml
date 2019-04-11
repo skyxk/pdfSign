@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.clt.ess.dao.IPersonDao">
+
+    <resultMap type="Person" id="personMap">
+        <id property="personId" column="personId"/>
+        <result property="personName" column="personName"/>
+        <result property="phone" column="phone"/>
+        <result property="idNum" column="idNum"/>
+        <result property="personImgBase64" column="personImgBase64"/>
+        <result property="sex" column="sex"/>
+        <result property="state" column="state"/>
+        <result property="provincialUserId" column="provincialUserId"/>
+        <result property="cerId" column="cerId"/>
+    </resultMap>
+
+    <update id="updatePersonByIDNum"  parameterType="Person">
+        update  person
+        <set>
+            <if test="personId != null">
+                personId = #{personId},
+            </if>
+            <if test="personName != null">
+                personName = #{personName},
+            </if>
+            <if test="phone != null">
+                phone = #{phone},
+            </if>
+
+            <if test="personImgBase64 != null">
+                personImgBase64 = #{personImgBase64},
+            </if>
+            <if test="sex != 0">
+                sex = #{sex},
+            </if>
+            <if test="state != 0">
+                state = #{state},
+            </if>
+            <if test="provincialUserId != null">
+                provincialUserId = #{provincialUserId},
+            </if>
+            <if test="cerId != null">
+                cerId = #{cerId}
+            </if>
+        </set>
+        where idNum = #{idNum}
+    </update>
+
+    <select id="findPerson" resultMap="personMap">
+        SELECT * FROM person
+        <where>
+            state = #{state}
+            <if test="personId != null">
+                AND personId = #{personId}
+            </if>
+            <if test="personName != null">
+                AND personName = #{personName}
+            </if>
+            <if test="phone != null">
+                AND phone = #{phone}
+            </if>
+            <if test="idNum != null">
+                AND idNum = #{idNum}
+            </if>
+            <if test="personImgBase64 != null">
+                AND personImgBase64 = #{personImgBase64}
+            </if>
+            <if test="sex!=0">
+                AND sex = #{sex}
+            </if>
+            <if test="provincialUserId != null">
+                AND provincialUserId = #{provincialUserId}
+            </if>
+            <if test="cerId != null">
+                AND cerId = #{cerId}
+            </if>
+        </where>
+    </select>
+
+
+    <select id="findPersonById" resultMap="personMap">
+        SELECT * FROM person
+        WHERE
+         personId = #{personId}
+    </select>
+
+
+    <select id="findPersonListByKeyword" resultMap="personMap">
+        SELECT * FROM person
+        WHERE
+        state = 1 and
+        concat(phone,idNum,personName) like CONCAT('%',#{keyword},'%')
+    </select>
+
+
+    <select id="findPersonByProvincialUserId" resultMap="personMap">
+        SELECT * FROM person
+        WHERE
+         provincialUserId = #{provincialUserId}
+    </select>
+    <select id="findPersonByIdNum" resultMap="personMap">
+        SELECT * FROM person
+        WHERE
+         idNum = #{idNum}
+    </select>
+</mapper>

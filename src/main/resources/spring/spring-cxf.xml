@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:jaxws="http://cxf.apache.org/jaxws"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+
+       http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+       http://cxf.apache.org/jaxws http://cxf.apache.org/schemas/jaxws.xsd">
+
+    <!-- 引入CXF配置文件，低版本还需引入其他两个文件 -->
+    <import resource="classpath:META-INF/cxf/cxf.xml" />
+    <import resource="classpath:META-INF/cxf/cxf-servlet.xml"/>
+
+    <bean id="hello" class="com.clt.ess.webservice.SendFileDataHandler" />
+    <jaxws:endpoint id="helloWorld" implementor="#hello" address="/signService" />
+
+    <!--发布webservice-->
+    <!--<bean id="jaxWsServiceFactoryBean"-->
+          <!--class="org.apache.cxf.jaxws.support.JaxWsServiceFactoryBean">-->
+        <!--<property name="wrapped" value="true" />-->
+    <!--</bean>-->
+
+    <!--
+    创建一个端点用来暴露接口
+    address ：相对刚才web.xml CXF请求路径也就是：
+    http://localhost:8080/pdfSign/services/person?wsdl
+    -->
+    <!--<jaxws:endpoint id="serviceimp" address="/person"-->
+                    <!--implementor="com.clt.ess.webservice.SendFileDataHandler">-->
+        <!--<jaxws:serviceFactory>-->
+            <!--<ref bean="jaxWsServiceFactoryBean" />-->
+        <!--</jaxws:serviceFactory>-->
+    <!--</jaxws:endpoint>-->
+
+</beans>

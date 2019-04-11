@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.clt.ess.dao.IBusinessSysDao">
+
+    <resultMap type="BusinessSys" id="businessSysMap">
+        <id property="businessSysId" column="businessSysId"/>
+        <result property="ftpAccount" column="ftpAccount"/>
+        <result property="ftpPsw" column="ftpPsw"/>
+        <result property="ftpPath" column="ftpPath"/>
+    </resultMap>
+
+    <select id="findBusinessSysById" parameterType="java.lang.String" resultMap="businessSysMap">
+        SELECT * FROM businesssys
+        WHERE businessSysId = #{businessSysId}
+    </select>
+
+</mapper>
