@@ -136,7 +136,6 @@ public class SendFileDataHandler {
         String gifBase64 ="";
         String sealTime ="";
         String bsUnitName ="";
-
         String url ="";
 
         WebSign ws = new WebSign();
@@ -235,6 +234,121 @@ public class SendFileDataHandler {
         return ESSGetBase64Encode(img);
     }
 
+    @WebMethod
+    public String WebServerHandWritingVerifys(@WebParam(name = "data") String data){
+
+        //获取数据数组
+        JSONArray jsonArray = new JSONArray("data");
+        //创建返回json数组
+        JSONArray resultArray = new JSONArray();
+        //遍历数组，执行验证
+        for (int i= 0;i<jsonArray.length();i++){
+            //单个签章验证
+            JSONObject jsonObject = jsonArray.getJSONObject(i);
+            String encodeData = jsonObject.getString("encodeData");
+            String imageData = jsonObject.getString("imageData");
+            String plainText = jsonObject.getString("plainText");
+            String encodeType = jsonObject.getString("encodeType");
+            int imgType = jsonObject.getInt("imgType");
+            String SignSerialNum = jsonObject.getString("SignSerialNum");
+            String sAuthInfo = jsonObject.getString("sAuthInfo");
+            String wantEncodeType = jsonObject.getString("wantEncodeType");
+            //验证代码
+            JSONObject result = new JSONObject();
+            String sealName ="";
+            String gifBase64 ="";
+            String sealTime ="";
+            String bsUnitName ="";
+            String url ="";
+
+            WebSign ws = new WebSign();
+            if (!"".equals(encodeData)&&!"".equals(imageData)&&!"".equals(plainText)&&"".equals(SignSerialNum)){
+                if(ws.VerifyData(plainText, encodeType,encodeData, imageData)) {
+                    result.put("resultType","true");
+                    result.put("gifBase64",ws.PictureData);
+                    result.put("sealTime",ws.SealTime);
+                }else{
+                    try {
+                        result.put("resultType","false");
+                        result.put("errorCode",ws.ErrorCode);
+                        if("".equals(ws.PictureData)){
+                            result.put("gifBase64",Constant.errImg);
+                        }else{
+                            result.put("gifBase64",addMarkErrorText(ws.PictureData));
+                        }
+                    } catch (IOException e) {
+                        result.put("resultType","false");
+                        result.put("errorCode","10004");
+                        result.put("gifBase64",Constant.errImg);
+                    }
+                }
+            }
+            if ("".equals(encodeData)&&"".equals(imageData)&&"".equals(plainText)&&!"".equals(SignSerialNum)){
+                url =Constant.essClientQuerySignLogBySerialNum+"?serialNum="+SignSerialNum;
+                //根据签章序列号获取签章日志
+                String HttpResult = HttpClient.doGet(url);
+                JSONObject jsonObject_1 = new JSONObject(HttpResult);
+                sealTime = jsonObject_1.getString("signTime");
+                String sealId = jsonObject_1.getString("sealId");
+                String businessSysId = jsonObject_1.getString("businessSysId");
+                Seal seal = sealDao.findSealById(sealId);
+
+                String idNum = seal.getSealHwIdNum();
+                Person person = personDao.findPersonByIdNum(idNum);
+
+                String signUserName = person.getPersonName();
+                sealName = seal.getSealName();
+                gifBase64 = seal.getSealImg().getSealImgGifBase64();
+
+                bsUnitName = unitDao.findBSUnitNameById(businessSysId);
+                result.put("resultType","true");
+                result.put("sealName",sealName);
+                result.put("sealTime",sealTime);
+                result.put("signUserName",signUserName);
+                result.put("bsSystemName",bsUnitName);
+            }
+            if(!"".equals(encodeData)&&!"".equals(imageData)&&!"".equals(plainText)&&!"".equals(SignSerialNum)){
+                url =Constant.essClientQuerySignLogBySerialNum+"?serialNum="+SignSerialNum;
+                //根据签章序列号获取签章日志
+                String HttpResult = HttpClient.doGet(url);
+                JSONObject jsonObject_1 = new JSONObject(HttpResult);
+                sealTime = jsonObject_1.getString("signTime");
+                String sealId = jsonObject_1.getString("sealId");
+                String businessSysId = jsonObject_1.getString("businessSysId");
+                Seal seal = sealDao.findSealById(sealId);
+
+                String idNum = seal.getSealHwIdNum();
+                Person person = personDao.findPersonByIdNum(idNum);
+
+                String signUserName = person.getPersonName();
+                sealName = seal.getSealName();
+                gifBase64 = seal.getSealImg().getSealImgGifBase64();
+
+                bsUnitName = unitDao.findBSUnitNameById(businessSysId);
+                result.put("resultType","true");
+                result.put("sealName",sealName);
+                result.put("sealTime",sealTime);
+                result.put("signUserName",signUserName);
+                result.put("bsSystemName",bsUnitName);
+                if(ws.VerifyData(plainText, encodeType,encodeData, imageData)) {
+                    result.put("gifBase64",gifBase64);
+                }else{
+                    try {
+                        result.put("resultType","false");
+                        result.put("errorCode",ws.ErrorCode);
+                        result.put("gifBase64",addMarkErrorText(gifBase64));
+                    } catch (IOException e) {
+                        result.put("resultType","false");
+                        result.put("errorCode","10004");
+                        result.put("gifBase64",Constant.errImg);
+                    }
+                }
+            }
+            //验证结果添加到数组
+            resultArray.put(result);
+        }
+        return resultArray.toString();
+    }
 
     @WebMethod
     public DataResult PDFSignature(@WebParam(name = "dataHandler") @XmlMimeType(value = "application/octet-stream")
