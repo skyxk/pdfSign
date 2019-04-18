@@ -34,8 +34,7 @@ import static com.clt.ess.utils.Base64Utils.*;
 import static com.clt.ess.utils.CutImageUtil.markImageBySingleText;
 import static com.clt.ess.utils.GetLocation.getLastKeyWord;
 import static com.clt.ess.utils.GetLocation.locationByBookMark;
-import static com.clt.ess.utils.Sign.addOverSeal;
-import static com.clt.ess.utils.Sign.addSeal;
+import static com.clt.ess.utils.Sign.*;
 import static com.clt.ess.utils.SocketUtils.wordToPdfClient;
 import static com.clt.ess.utils.uuidUtil.getUUID;
 
@@ -456,6 +455,109 @@ public class SendFileDataHandler {
     }
 
 
+    @WebMethod
+    public DataResult PDFSignatureOne(@WebParam(name = "dataHandler") @XmlMimeType(value = "application/octet-stream")
+                                           DataHandler dataHandler, @WebParam(name = "jsonString") String jsonString) throws IOException {
+        DataResult dataResult = new DataResult();
+        dataResult.setResultType(true);
+        File source = null;
+        String uuid = getUUID();
+        String fileName = uuid+".pdf";
+        JSONObject jsonSealInfo = new JSONObject(jsonString);
+
+        if(jsonSealInfo.getString("businessSysId") !=null &&jsonSealInfo.getString("docType") !=null
+                &&jsonSealInfo.getString("fileType") !=null){
+            String businessSysId = jsonSealInfo.getString("businessSysId");
+            String docType = jsonSealInfo.getString("docType");
+            String fileType = jsonSealInfo.getString("fileType");
+            BusinessSys businessSys = businessSysDao.findBusinessSysById(businessSysId);
+            if (businessSys!=null){
+                username = businessSys.getFtpAccount();
+                password = businessSys.getFtpPsw();
+                File saveDir = new File(businessSys.getFtpPath());
+                if(!saveDir.exists()){
+                    saveDir.mkdir();
+                }
+                if("doc".equals(fileType)){
+                    fileName = uuid+".doc";
+                    try {
+                        saveFile(dataHandler,businessSys.getFtpPath()+fileName);
+                    } catch (IOException e) {
+                        return null;
+                    }
+                    //文件路径
+                    boolean wordToPdfResult = wordToPdfClient(businessSys.getFtpPath()+fileName);
+                    if (wordToPdfResult){
+                        fileName = uuid+".pdf";
+                    }else{
+                        dataResult.setResultType(false);
+                        dataResult.setResultMessage("文档转换异常");
+                        return dataResult;
+                    }
+                }else{
+                    try {
+                        saveFile(dataHandler,businessSys.getFtpPath()+fileName);
+                    } catch (IOException e) {
+                        dataResult.setResultType(false);
+                        dataResult.setResultMessage("保存文件失败");
+                        return dataResult;
+                    }
+                }
+                try {
+                    JSONArray s = jsonSealInfo.getJSONArray("sealInfos");
+                    List<SealInfo> sealInfoList = jsonToSealInfoList(s);
+                    for(SealInfo sealInfo : sealInfoList){
+                        //执行签章步骤
+                        int result1 = doSealInfo_1(sealInfo,businessSysId,docType,businessSys.getFtpPath()+fileName);
+                        switch (result1){
+                            case 1:
+                                dataResult.setResultType(false);
+                                dataResult.setResultMessage("查找印章错误");
+                                break;
+                            case 2:
+                                dataResult.setResultType(false);
+                                dataResult.setResultMessage("保存图片错误");
+                                break;
+                            case 3:
+                                dataResult.setResultType(false);
+                                dataResult.setResultMessage("书签定位错误");
+                                break;
+                            case 4:
+                                dataResult.setResultType(false);
+                                dataResult.setResultMessage("关键字定位错误");
+                                break;
+                            case 5:
+                                dataResult.setResultType(false);
+                                dataResult.setResultMessage("未知错误");
+                                break;
+                        }
+                        if(result1!=0){
+                            break;
+                        }
+                    }
+                    source = new File(businessSys.getFtpPath()+fileName);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    dataResult.setResultType(false);
+                    dataResult.setResultMessage("签章过程异常");
+                }
+            }else{
+                dataResult.setResultType(false);
+                dataResult.setResultMessage("业务系统查询失败");
+            }
+
+        }else {
+            dataResult.setResultType(false);
+            dataResult.setResultMessage("签章信息确实");
+        }
+
+        if(dataResult.getResultType()){
+            dataResult.setResultMessage("签章成功");
+            DataSource dataSource = new FileDataSource(source);
+            dataResult.setDataHandler(new DataHandler(dataSource));
+        }
+        return dataResult;
+    }
 
 
     private String notifyConvert(String fileName, String businessSysId) {
@@ -585,43 +687,6 @@ public class SendFileDataHandler {
         decoderBase64File(seal.getCertificate().getPfxBase64(), Constant.pfxPath);
         //获取证书密码
         String pwd = seal.getCertificate().getCerPsw();
-        //查看授权
-//        if(sealInfo.getsStaffID()!=null){
-//            //??????id???null,??????????????????????
-//            //????????????????????????????
-//            String url = Constant.checkJurUrl+"?sealId="+seal.getSealId()+"&provincialUserId="+provincialUserId
-//                    +"&businessSysId="+businessSysId;
-//            String HttpResult = HttpClient.doGet(url);
-//            JSONObject jsonObject = new JSONObject(HttpResult);
-//            if(jsonObject.getInt("msg")==1){
-//                //?????????
-//                sjId = jsonObject.getString("sjId");
-//                tjId = jsonObject.getString("tjId");
-//                url = Constant.pdfSignAbtCheckJurLimitMsg+"?tjId="+tjId+"&sjId="+sjId
-//                        +"&businessSysId="+businessSysId+"&fileTypeNum="+Constant.fileTypeNum;
-//                HttpResult = HttpClient.doGet(url);
-//                jsonObject = new JSONObject(HttpResult);
-//                if(jsonObject.getInt("msg")==0){
-//                    //???????
-//                    result = 5;
-//                    return result;
-//                }
-//            }else{
-//                //????? ??????????
-//                result = 2;
-//                return result;
-//            }
-//        }else{
-//            String url = Constant.pdfSignAbtCheckJurLimitMsg+"?tjId="+tjId+"&sjId="+sjId
-//                    +"&businessSysId="+businessSysId+"&fileTypeNum="+Constant.fileTypeNum;
-//            String HttpResult = HttpClient.doGet(url);
-//            JSONObject jsonObject = new JSONObject(HttpResult);
-//            if(jsonObject.getInt("msg")==0){
-//                //???????
-//                result = 5;
-//                return result;
-//            }
-//        }
 
         //确认定位方式
         if(sealInfo.getLocationMode()==-1){
@@ -673,6 +738,113 @@ public class SendFileDataHandler {
 //                seal.getSealId(),seal.getUnitId());
         return result;
     }
+
+
+    /**
+     * 根据签章信息处理，并进行签章动作
+     * @param sealInfo 签章信息
+     * @return  错误类型
+     * @throws Exception 异常
+     */
+    private int doSealInfo_1(SealInfo sealInfo,String businessSysId,String docType,String fileName ) throws
+            Exception {
+        String signSerialNum = getUUID();
+        int result = 0;
+        //授权id
+        String sjId ="";
+        //转授id
+        String tjId = "";
+        //全省统一人员id
+        String provincialUserId  ="";
+
+        if(sealInfo.getsStaffID()==null){
+            provincialUserId = businessSysId;
+        }else{
+            provincialUserId = sealInfo.getsStaffID();
+        }
+        //初始化印章
+        Seal seal =new Seal();
+        //判断是否手签
+        if(sealInfo.getsSealType().contains("st7")){
+            //如果是手签，根据全省统一人员id查找印章
+            Person person = personDao.findPersonByProvincialUserId(sealInfo.getsStaffID());
+            seal = sealDao.findSealByIdNum(person.getIdNum());
+        }else{
+            if(sealInfo.getsSealID()==null||"".equals(sealInfo.getsSealID())){
+                //公章，并且没有印章id,根据单位id和印章类型查找
+                List<Unit> unitList = unitDao.findUnitByOrgId(sealInfo.getsOrgID(),businessSysId);
+                for (Unit unit :unitList){
+                    seal = sealDao.findSealByUnitAndType(sealInfo.getsSealType(),unit.getUnitId());
+                    if(seal.getSealId() == null||"".equals(seal.getSealId())){
+                        break;
+                    }
+                }
+            }else{
+                seal = sealDao.findSealById(sealInfo.getsSealID());
+            }
+        }
+        //判断印章是否为空
+        if(seal.getSealId() == null||"".equals(seal.getSealId())){
+            //查找印章错误
+            return 1;
+        }
+        //保存图片
+        byte[] sealImg;
+        if (seal.getSealImg() != null) {
+            sealImg = ESSGetBase64Decode(seal.getSealImg().getSealImgGifBase64());
+            decoderBase64File(seal.getSealImg().getSealImgGifBase64(), Constant.imgPath);
+        }else{
+            //保存图片错误
+            return 2;
+        }
+        //保存证书
+        decoderBase64File(seal.getCertificate().getPfxBase64(), Constant.pfxPath);
+        //获取证书密码
+        String pwd = seal.getCertificate().getCerPsw();
+
+        //确认定位方式
+        if(sealInfo.getLocationMode()==-1){
+            //坐标定位
+        }else if(sealInfo.getLocationMode()==0){
+            //书签定位
+            Location location = locationByBookMark(fileName,sealInfo.getsKeyWords());
+            if(location==null){
+                //书签定位错误
+                return 3;
+            }
+//            int x = sealInfo.getiOffsetX();
+//            int y = sealInfo.getiOffsetY();
+            sealInfo.setiOffsetX((int) location.getX());
+            sealInfo.setiOffsetY((int) location.getY());
+            sealInfo.setPageNum(location.getPageNum());
+        }else{
+            //关键字定位
+            int x = sealInfo.getiOffsetX();
+            int y = sealInfo.getiOffsetY();
+            //
+            List<Location> list = getLastKeyWord(fileName,sealInfo.getsKeyWords().toLowerCase());
+            Location location = null;
+            if (list != null && list.size() >= sealInfo.getLocationMode() ) {
+                //确定
+                location =list.get(sealInfo.getLocationMode() - 1);
+            }
+            if(location!=null){
+                //根据偏移量修正坐标
+                sealInfo.setiOffsetX((int) location.getX()+x);
+                sealInfo.setiOffsetY((int) location.getY()+y);
+                sealInfo.setPageNum(location.getPageNum());
+            }else{
+                //关键字定位错误
+                return 4;
+            }
+        }
+        //单个签章
+        addOverSealPage(fileName,sealImg,sealInfo.getiSealImgW(),sealInfo.getiSealImgH(),
+                sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),Constant.pfxPath,pwd,signSerialNum);
+
+        return result;
+    }
+
 
     private boolean addSignLog(String provincialUserId,String businessSysId,String tjId,String sjId,String docId,
                           String docType,String signSerialNum,String sealId,String unitId){
