@@ -36,6 +36,7 @@ import static com.clt.ess.utils.GetLocation.getLastKeyWord;
 import static com.clt.ess.utils.GetLocation.locationByBookMark;
 import static com.clt.ess.utils.Sign.addOverSeal;
 import static com.clt.ess.utils.Sign.addSeal;
+import static com.clt.ess.utils.SocketUtils.wordToPdfClient;
 import static com.clt.ess.utils.uuidUtil.getUUID;
 
 @WebService(name="pdfSignWS",serviceName="pdfSignService",targetNamespace="http://ESSPDFSIGN/client")
@@ -380,27 +381,29 @@ public class SendFileDataHandler {
                     } catch (IOException e) {
                         return null;
                     }
-
-                    uploadFile("/word/", fileName,dataHandler.getInputStream());
-                    String sPdfFile = notifyConvert(fileName,businessSysId);
-                    if(sPdfFile ==null){
+                    //文件路径
+                    boolean wordToPdfResult = wordToPdfClient(businessSys.getFtpPath()+fileName);
+                    if (wordToPdfResult){
+                        fileName = uuid+".pdf";
+                    }else{
                         dataResult.setResultType(false);
-                        dataResult.setResultMessage("文件转换失败");
+                        dataResult.setResultMessage("文档转换异常");
+                        return dataResult;
                     }
-                    fileName = uuid+".pdf";
-                    downloadFile("/pdf/", sPdfFile,businessSys.getFtpPath()+fileName);
                 }else{
                     try {
                         saveFile(dataHandler,businessSys.getFtpPath()+fileName);
                     } catch (IOException e) {
                         dataResult.setResultType(false);
                         dataResult.setResultMessage("保存文件失败");
+                        return dataResult;
                     }
                 }
                 try {
                     JSONArray s = jsonSealInfo.getJSONArray("sealInfos");
                     List<SealInfo> sealInfoList = jsonToSealInfoList(s);
                     for(SealInfo sealInfo : sealInfoList){
+                        //执行签章步骤
                         int result1 = doSealInfo(sealInfo,businessSysId,docType,businessSys.getFtpPath()+fileName);
                         switch (result1){
                             case 1:
@@ -451,6 +454,9 @@ public class SendFileDataHandler {
         }
         return dataResult;
     }
+
+
+
 
     private String notifyConvert(String fileName, String businessSysId) {
         Map<String,Object> paras = new HashMap<String, Object>();
@@ -727,6 +733,26 @@ public class SendFileDataHandler {
         }
         return  sealInfos;
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     //ftp地址

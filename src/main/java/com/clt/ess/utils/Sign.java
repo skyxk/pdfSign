@@ -60,6 +60,25 @@ public class Sign {
         }
     }
 
+    public static void addOverSealPage(String pdfPath, byte[] picPath, float width, float heigth,float x, float y,
+                                       String pdxPath, String pwd,String signSerialNum) throws IOException,
+            DocumentException, GeneralSecurityException {
+
+        PDDocument document = PDDocument.load(new File(pdfPath));
+        int pageNum = document.getNumberOfPages();
+        PDPageTree pages = document.getPages();
+        document.close();
+
+        //每页的签章位置 需要知道 每页的签章图片和签章起始坐标
+        for(int num = 0;num<pageNum;num++){
+            addSeal(pdfPath,picPath,width,heigth,
+                    num+1,x,y,pdxPath,pwd,signSerialNum);
+            //骑缝章有一个签署不成功则离开循环，签章错误
+        }
+    }
+
+
+
     /**
      *签章并生成新的文件
      */
