@@ -1,19 +1,27 @@
 package com.clt.ess.base;
 
 public class Constant {
-    public static final String productType = "pdfSign V1.0.0";
-    //图片的临时路径
+
+    //写日志用到的产品类型，本产品为ESSPDFSIGN V1.0
+    public static final String productType = "ESSPDFSIGN V1.0";
+    //签章时用到的图片临时路径（可以通过datahandler加以改造，取消在磁盘上写临时文件，下面证书路径同理）
 //    public static final String imgPath = "/usr/esstempfile/demo.gif";
     public static final String imgPath = "D:\\temp\\demo.gif";
-    //图片的临时路径
+
+
+    //证书的临时路径
 //    public static final String pfxPath = "/usr/esstempfile/demo.pfx";
     public static final String pfxPath = "D:\\temp\\demo.pfx";
+
+
     //检查授权url
     public static final String checkJurUrl = "http://10.40.4.7:8080/SealCenter/seal/pdfSignAbtCheckJur";
-    //写签章日志url
+    //写签章日志接口
     public static final String addSignLogInServerUrl = "http://192.144.176.134:8081/SealCenter/seal/pdfSignAbtAddSignLogInServer";
+    //查询日志的接口
     public static final String essClientQuerySignLogBySerialNum="http://192.144.176.134:8081/SealCenter/seal/essClientQuerySignLogBySerialNum";
     //校验是否符合授权条件url
+
     public static final String pdfSignAbtCheckJurLimitMsg = "http://10.40.4.7:8080/SealCenter/seal/pdfSignAbtCheckJurLimitMsg";
     //文件类型编码
     public static final String fileTypeNum = "32";

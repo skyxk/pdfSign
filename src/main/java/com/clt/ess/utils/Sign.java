@@ -26,38 +26,44 @@ import java.util.UUID;
 
 public class Sign {
 
-    public static void addOverSeal(String pdfFile,String imgPath,String pfxPath,String pwd,String signSerialNum) throws IOException,
+    public static void addOverSeal(String pdfFile,String imgPath,String pfxPath,String pwd,String signSerialNum,
+                                   float width, float heigth) throws IOException,
             DocumentException, GeneralSecurityException {
         //PDF骑缝章签署过程
         //首先处理签章图片，
         //获取签章的页数
         PDDocument document = PDDocument.load(new File(pdfFile));
         int pageNum = document.getNumberOfPages();
-        PDPageTree pages = document.getPages();
-        document.close();
-        //处理图片，将图片按照pdf页数等分，并获取图片宽度和长度。
-        File sourceFile = new File(imgPath);
-        List<String> ImageBase64List = CutImageUtil.cutImageToBase64(sourceFile,pageNum);
+        if (pageNum>1){
+            PDPageTree pages = document.getPages();
+            document.close();
+            //处理图片，将图片按照pdf页数等分，并获取图片宽度和长度。
+            File sourceFile = new File(imgPath);
+            List<String> ImageBase64List = CutImageUtil.cutImageToBase64(sourceFile,pageNum);
 //        CutImageUtil.cutImageToFile(sourceFile,"E:\\temp\\",pageNum);
-        //每页的签章位置 需要知道 每页的签章图片和签章起始坐标
-        for(int num = 0;num<pageNum;num++){
-            PDPage p = pages.get(num);
-            int pWidth = (int) p.getMediaBox().getWidth();
-            int pHeight = (int) p.getMediaBox().getHeight();
+            //每页的签章位置 需要知道 每页的签章图片和签章起始坐标
+            for(int num = 0;num<pageNum;num++){
+                PDPage p = pages.get(num);
+                int pWidth = (int) p.getMediaBox().getWidth();
+                int pHeight = (int) p.getMediaBox().getHeight();
 
-            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(Base64Utils.ESSGetBase64Decode(
-                    ImageBase64List.get(num)));
-            BufferedImage source = ImageIO.read(byteArrayInputStream);
-            int cWidth = source.getWidth();
-            int cHeigth = source.getHeight();
-            //计算签章其实坐标
-            int x = pWidth-cWidth;
-            int y = pHeight/2-cHeigth/2;
+                ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(Base64Utils.ESSGetBase64Decode(
+                        ImageBase64List.get(num)));
+                BufferedImage source = ImageIO.read(byteArrayInputStream);
+                int cWidth = source.getWidth();
+                int cHeigth = source.getHeight();
+                cWidth = (int) width/pageNum;
+                cHeigth = (int) heigth;
+                //计算签章其实坐标
+                int x = pWidth-cWidth;
+                int y = pHeight/2-cHeigth/2;
 
-            addSeal(pdfFile,Base64Utils.ESSGetBase64Decode(ImageBase64List.get(num)),cWidth,cHeigth,
-                    num+1,x,y,pfxPath,pwd,signSerialNum);
-            //骑缝章有一个签署不成功则离开循环，签章错误
+                addSeal(pdfFile,Base64Utils.ESSGetBase64Decode(ImageBase64List.get(num)),cWidth,cHeigth,
+                        num+1,x,y,pfxPath,pwd,signSerialNum);
+                //骑缝章有一个签署不成功则离开循环，签章错误
+            }
         }
+
     }
 
     public static void addOverSealPage(String pdfPath, byte[] picPath, float width, float heigth,float x, float y,

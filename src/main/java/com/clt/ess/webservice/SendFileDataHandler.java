@@ -51,6 +51,16 @@ public class SendFileDataHandler {
     private IPersonDao personDao;
     @Autowired
     private IUserDao userDao;
+
+    /**
+     * 网页签章接口（暂时只支持手写签名签章）
+     * @param sSysID 业务系统id
+     * @param sSysPersonID 手签人标识，可以是江苏省统一人员id，也可以是系统内人员的身份证号。
+     * @param sPlain 需要签名的明文信息
+     * @param sAuthInfo 未使用参数 （待定义）
+     * @param sPlainEncodeType 签名编码格式
+     * @return JSON字符串
+     */
     @WebMethod
     public String WebServerHandWritingSign(@WebParam(name = "sSysID") String sSysID,
                                        @WebParam(name = "sSysPersonID") String sSysPersonID,
@@ -58,24 +68,25 @@ public class SendFileDataHandler {
                                        @WebParam(name = "sAuthInfo") String sAuthInfo,
                                        @WebParam(name = "sPlainEncodeType") String sPlainEncodeType){
 
+        //新建json对象，作为返回信息
         JSONObject jsonObject = new JSONObject();
-        //签章序列号
+        //签章序列号 每次签章的序号，取uuid;保证唯一性
         String signSerialNum = getUUID();
-        //身份证号
-        String idNum ;
-        //签章人员对象
-
+        // 初始化身份证号，查询印章需要。
+        String idNum =null;
+        //查找对应的签章
         if(sSysPersonID.length()==18){
-            //如果传入的参数为身份证号
+            //如果传入的参数为身份证号，则直接根据传入数据查找印章
             idNum = sSysPersonID;
-//            person.setIdNum(sSysPersonID);
-//            person.setState(1);
-//            person = personDao.findPerson(person);
         }else{
-            //如果传入的参数为统一人员ID
-            Person  person = personDao.findPersonByProvincialUserId(sSysPersonID);
+            //如果传入的参数为统一人员ID，默认只传入两种数据，身份证号和统一人员id,
+            //查找person对象
+            Person person = personDao.findPersonByProvincialUserId(sSysPersonID);
+            //如果person对象为空，返回错误信息
             if (person ==null){
+                //返回结果类型
                 jsonObject.put("resultType","false");
+                //错误信息类型
                 jsonObject.put("errorCode","0003");
                 return jsonObject.toString();
             }
@@ -84,6 +95,7 @@ public class SendFileDataHandler {
         //根据身份证号查询印章数据
         Seal seal = sealDao.findSealByIdNum(idNum);
         if (seal==null){
+            //如果印章数据为空
             jsonObject.put("resultType","false");
             jsonObject.put("errorCode","0001");
             return jsonObject.toString();
@@ -352,7 +364,7 @@ public class SendFileDataHandler {
 
     @WebMethod
     public DataResult PDFSignature(@WebParam(name = "dataHandler") @XmlMimeType(value = "application/octet-stream")
-                                                  DataHandler dataHandler, @WebParam(name = "jsonString") String jsonString) throws IOException {
+                                                  DataHandler dataHandler, @WebParam(name = "jsonString") String jsonString) {
         DataResult dataResult = new DataResult();
         dataResult.setResultType(true);
         File source = null;
@@ -457,7 +469,7 @@ public class SendFileDataHandler {
 
     @WebMethod
     public DataResult PDFSignatureOne(@WebParam(name = "dataHandler") @XmlMimeType(value = "application/octet-stream")
-                                           DataHandler dataHandler, @WebParam(name = "jsonString") String jsonString) throws IOException {
+                                           DataHandler dataHandler, @WebParam(name = "jsonString") String jsonString) {
         DataResult dataResult = new DataResult();
         dataResult.setResultType(true);
         File source = null;
@@ -727,7 +739,7 @@ public class SendFileDataHandler {
         //判断是否骑缝章
         if(sealInfo.isBlPagingSeal()){
             //骑缝章
-            addOverSeal(fileName,Constant.imgPath,Constant.pfxPath,pwd,signSerialNum);
+            addOverSeal(fileName,Constant.imgPath,Constant.pfxPath,pwd,signSerialNum,sealInfo.getiSealImgW(),sealInfo.getiSealImgH());
         }else{
             //单个签章
             addSeal(fileName,sealImg,sealInfo.getiSealImgW(),sealInfo.getiSealImgH(),sealInfo.getPageNum(),
@@ -838,9 +850,16 @@ public class SendFileDataHandler {
                 return 4;
             }
         }
-        //单个签章
-        addOverSealPage(fileName,sealImg,sealInfo.getiSealImgW(),sealInfo.getiSealImgH(),
-                sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),Constant.pfxPath,pwd,signSerialNum);
+        //判断是否骑缝章
+        if(sealInfo.isBlPagingSeal()){
+            //单个签章
+            addOverSealPage(fileName,sealImg,sealInfo.getiSealImgW(),sealInfo.getiSealImgH(),
+                    sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),Constant.pfxPath,pwd,signSerialNum);
+        }else{
+            //单个签章
+            addSeal(fileName,sealImg,sealInfo.getiSealImgW(),sealInfo.getiSealImgH(),sealInfo.getPageNum(),
+                    sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),Constant.pfxPath,pwd,signSerialNum);
+        }
 
         return result;
     }
@@ -907,38 +926,20 @@ public class SendFileDataHandler {
     }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    /**
+     * 以下为ftp处理上传下载的代码，放在类外会出现异常，暂时放在此处，待解决问题
+     * 参数除了地址接口不可变外，用户名密码会根据上方方法参数改变
+     */
     //ftp地址
     public static  String hostname = Constant.ftpIp;
     //ftp端口
     public static Integer port = Constant.ftpPort;
     //ftp账号
-    public static String username = "system001";
+    public static String username = Constant.ftpUser;
     //ftp密码
-    public static String password = "fwfs#652dQ31fsdJ*4d";
+    public static String password = Constant.ftpPwd;
 
     public static FTPClient ftpClient = null;
-
-
     private static void initFtpClient() {
         ftpClient = new FTPClient();
         ftpClient.setControlEncoding("utf-8");
@@ -954,7 +955,6 @@ public class SendFileDataHandler {
             e.printStackTrace();
         }
     }
-
     private static boolean uploadFile( String pathname, String fileName,String originfilename){
         boolean flag = false;
         InputStream inputStream = null;
