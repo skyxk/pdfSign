@@ -12,6 +12,7 @@ import org.apache.commons.net.ftp.FTPReply;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
@@ -24,11 +25,10 @@ import javax.xml.bind.annotation.XmlMimeType;
 import java.awt.*;
 import java.io.*;
 import java.net.MalformedURLException;
+import java.net.SocketException;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
 import static com.clt.ess.utils.Base64Utils.*;
 import static com.clt.ess.utils.CutImageUtil.markImageBySingleText;
@@ -37,6 +37,7 @@ import static com.clt.ess.utils.GetLocation.locationByBookMark;
 import static com.clt.ess.utils.Sign.*;
 import static com.clt.ess.utils.SocketUtils.wordToPdfClient;
 import static com.clt.ess.utils.uuidUtil.getUUID;
+import static java.lang.Thread.sleep;
 
 @WebService(name="pdfSignWS",serviceName="pdfSignService",targetNamespace="http://ESSPDFSIGN/client")
 public class SendFileDataHandler {
@@ -51,6 +52,76 @@ public class SendFileDataHandler {
     private IPersonDao personDao;
     @Autowired
     private IUserDao userDao;
+
+//    @Value("${Platform}")
+    public static String Platform;
+//    @Value("${FileTempPath}")
+    public static String FileTempPath;
+//    @Value("${ImgPath}")
+    public static String imgPath;
+//    @Value("${PfxPath}")
+    public static String pfxPath;
+//    @Value("${FtpPath}")
+    public static String FtpPath;
+    //ftp地址
+//    @Value("${FtpIp}")
+    public static String hostname;
+    //ftp端口
+//    @Value("${FtpPort}")
+    public static Integer port = 21;
+    //ftp账号
+//    @Value("${FtpUser}")
+    public static String username;
+    //ftp密码
+//    @Value("${FtpPwd}")
+    public static String password;
+
+    private static void initData() {
+        Properties prop = new Properties();
+        try{
+            //读取属性文件a.properties
+            InputStream in = SendFileDataHandler.class.getClassLoader().getResource("config.properties").openStream();
+            prop.load(in);     ///加载属性列表
+            Iterator<String> it=prop.stringPropertyNames().iterator();
+            while(it.hasNext()){
+                String key=it.next();
+                switch (key){
+                    case "Platform":
+                        Platform =prop.getProperty(key);
+                        continue;
+                    case "FileTempPath":
+                        FileTempPath =prop.getProperty(key);
+                        continue;
+                    case "ImgPath":
+                        imgPath =prop.getProperty(key);
+                        continue;
+                    case "PfxPath":
+                        pfxPath =prop.getProperty(key);
+                        continue;
+                    case "FtpPath":
+                        FtpPath =prop.getProperty(key);
+                        continue;
+                    case "FtpIp":
+                        hostname =prop.getProperty(key);
+                        continue;
+                    case "FtpPort":
+//                        port =Integer.parseInt(key);
+                        continue;
+                    case "FtpUser":
+                        username =prop.getProperty(key);
+                        continue;
+                    case "FtpPwd":
+                        password =prop.getProperty(key);
+                        continue;
+//                    default:break;
+                }
+            }
+            in.close();
+        }
+        catch(Exception e){
+            System.out.println(e);
+        }
+    }
 
     /**
      * 网页签章接口（暂时只支持手写签名签章）
@@ -67,7 +138,7 @@ public class SendFileDataHandler {
                                        @WebParam(name = "sPlain") String sPlain,
                                        @WebParam(name = "sAuthInfo") String sAuthInfo,
                                        @WebParam(name = "sPlainEncodeType") String sPlainEncodeType){
-
+        initData();
         //新建json对象，作为返回信息
         JSONObject jsonObject = new JSONObject();
         //签章序列号 每次签章的序号，取uuid;保证唯一性
@@ -143,6 +214,7 @@ public class SendFileDataHandler {
                                                @WebParam(name = "SignSerialNum") String SignSerialNum,
                                              @WebParam(name = "sAuthInfo") String sAuthInfo,
                                              @WebParam(name = "wantEncodeType") String wantEncodeType){
+        initData();
         JSONObject result = new JSONObject();
         String sealName ="";
         String gifBase64 ="";
@@ -241,14 +313,14 @@ public class SendFileDataHandler {
             return result.toString();
         }
     }
-    public String addMarkErrorText(String data) throws IOException {
+    private String addMarkErrorText(String data) throws IOException {
         byte[] img = markImageBySingleText(ESSGetBase64Decode(data), Color.red,"——————————————",null);
         return ESSGetBase64Encode(img);
     }
 
     @WebMethod
     public String WebServerHandWritingVerifys(@WebParam(name = "data") String data){
-
+        initData();
         //获取数据数组
         JSONArray jsonArray = new JSONArray("data");
         //创建返回json数组
@@ -365,6 +437,7 @@ public class SendFileDataHandler {
     @WebMethod
     public DataResult PDFSignature(@WebParam(name = "dataHandler") @XmlMimeType(value = "application/octet-stream")
                                                   DataHandler dataHandler, @WebParam(name = "jsonString") String jsonString) {
+        initData();
         DataResult dataResult = new DataResult();
         dataResult.setResultType(true);
         File source = null;
@@ -379,31 +452,56 @@ public class SendFileDataHandler {
             String fileType = jsonSealInfo.getString("fileType");
             BusinessSys businessSys = businessSysDao.findBusinessSysById(businessSysId);
             if (businessSys!=null){
-                username = businessSys.getFtpAccount();
-                password = businessSys.getFtpPsw();
-                File saveDir = new File(businessSys.getFtpPath());
+//                username = businessSys.getFtpAccount();
+//                password = businessSys.getFtpPsw();
+                File saveDir = new File(FtpPath);
                 if(!saveDir.exists()){
                     saveDir.mkdir();
                 }
                 if("doc".equals(fileType)){
                     fileName = uuid+".doc";
-                    try {
-                        saveFile(dataHandler,businessSys.getFtpPath()+fileName);
-                    } catch (IOException e) {
-                        return null;
-                    }
-                    //文件路径
-                    boolean wordToPdfResult = wordToPdfClient(businessSys.getFtpPath()+fileName);
-                    if (wordToPdfResult){
-                        fileName = uuid+".pdf";
+
+                    if("windows".equals(Platform)){
+                        try {
+                            saveFile(dataHandler,FtpPath+fileName);
+                        } catch (IOException e) {
+                            return null;
+                        }
+                        //文件路径
+                        boolean wordToPdfResult = wordToPdfClient(fileName);
+                        if (wordToPdfResult){
+                            fileName = uuid+".pdf";
+                        }else{
+                            dataResult.setResultType(false);
+                            dataResult.setResultMessage("文档转换异常");
+                            return dataResult;
+                        }
                     }else{
-                        dataResult.setResultType(false);
-                        dataResult.setResultMessage("文档转换异常");
-                        return dataResult;
+                        //上传文件
+                        try {
+                            uploadFile(fileName,dataHandler.getInputStream());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            dataResult.setResultType(false);
+                            dataResult.setResultMessage("文档转换异常");
+                            return dataResult;
+                        }
+                        //文件路径
+                        boolean wordToPdfResult = wordToPdfClient(fileName);
+                        //下载文件
+                        if (wordToPdfResult){
+                            fileName = uuid+".pdf";
+                            downloadFile(fileName,FtpPath+fileName);
+                        }else{
+                            dataResult.setResultType(false);
+                            dataResult.setResultMessage("文档转换异常");
+                            return dataResult;
+                        }
                     }
+
                 }else{
                     try {
-                        saveFile(dataHandler,businessSys.getFtpPath()+fileName);
+                        saveFile(dataHandler,FtpPath+fileName);
                     } catch (IOException e) {
                         dataResult.setResultType(false);
                         dataResult.setResultMessage("保存文件失败");
@@ -415,7 +513,7 @@ public class SendFileDataHandler {
                     List<SealInfo> sealInfoList = jsonToSealInfoList(s);
                     for(SealInfo sealInfo : sealInfoList){
                         //执行签章步骤
-                        int result1 = doSealInfo(sealInfo,businessSysId,docType,businessSys.getFtpPath()+fileName);
+                        int result1 = doSealInfo(sealInfo,businessSysId,docType,FtpPath+fileName);
                         switch (result1){
                             case 1:
                                 dataResult.setResultType(false);
@@ -442,7 +540,7 @@ public class SendFileDataHandler {
                             break;
                         }
                     }
-                    source = new File(businessSys.getFtpPath()+fileName);
+                    source = new File(FtpPath+fileName);
                 } catch (Exception e) {
                     e.printStackTrace();
                     dataResult.setResultType(false);
@@ -470,6 +568,7 @@ public class SendFileDataHandler {
     @WebMethod
     public DataResult PDFSignatureOne(@WebParam(name = "dataHandler") @XmlMimeType(value = "application/octet-stream")
                                            DataHandler dataHandler, @WebParam(name = "jsonString") String jsonString) {
+        initData();
         DataResult dataResult = new DataResult();
         dataResult.setResultType(true);
         File source = null;
@@ -484,31 +583,56 @@ public class SendFileDataHandler {
             String fileType = jsonSealInfo.getString("fileType");
             BusinessSys businessSys = businessSysDao.findBusinessSysById(businessSysId);
             if (businessSys!=null){
-                username = businessSys.getFtpAccount();
-                password = businessSys.getFtpPsw();
-                File saveDir = new File(businessSys.getFtpPath());
+//                username = businessSys.getFtpAccount();
+//                password = businessSys.getFtpPsw();
+                File saveDir = new File(FtpPath);
                 if(!saveDir.exists()){
                     saveDir.mkdir();
                 }
                 if("doc".equals(fileType)){
                     fileName = uuid+".doc";
-                    try {
-                        saveFile(dataHandler,businessSys.getFtpPath()+fileName);
-                    } catch (IOException e) {
-                        return null;
-                    }
-                    //文件路径
-                    boolean wordToPdfResult = wordToPdfClient(businessSys.getFtpPath()+fileName);
-                    if (wordToPdfResult){
-                        fileName = uuid+".pdf";
+                    if("windows".equals(Platform)){
+                        try {
+                            saveFile(dataHandler,FtpPath+fileName);
+                        } catch (IOException e) {
+                            return null;
+                        }
+                        //文件路径
+                        boolean wordToPdfResult = wordToPdfClient(fileName);
+                        if (wordToPdfResult){
+                            fileName = uuid+".pdf";
+                        }else{
+                            dataResult.setResultType(false);
+                            dataResult.setResultMessage("文档转换异常");
+                            return dataResult;
+                        }
                     }else{
-                        dataResult.setResultType(false);
-                        dataResult.setResultMessage("文档转换异常");
-                        return dataResult;
+                        //上传文件
+                        try {
+                            uploadFile(fileName,dataHandler.getInputStream());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            dataResult.setResultType(false);
+                            dataResult.setResultMessage("文档转换异常");
+                            return dataResult;
+                        }
+                        //文件路径
+                        boolean wordToPdfResult = wordToPdfClient(fileName);
+                        //下载文件
+                        if (wordToPdfResult){
+
+
+                            fileName = uuid+".pdf";
+                            downloadFile(fileName,FtpPath+fileName);
+                        }else{
+                            dataResult.setResultType(false);
+                            dataResult.setResultMessage("文档转换异常");
+                            return dataResult;
+                        }
                     }
                 }else{
                     try {
-                        saveFile(dataHandler,businessSys.getFtpPath()+fileName);
+                        saveFile(dataHandler,FtpPath+fileName);
                     } catch (IOException e) {
                         dataResult.setResultType(false);
                         dataResult.setResultMessage("保存文件失败");
@@ -520,7 +644,7 @@ public class SendFileDataHandler {
                     List<SealInfo> sealInfoList = jsonToSealInfoList(s);
                     for(SealInfo sealInfo : sealInfoList){
                         //执行签章步骤
-                        int result1 = doSealInfo_1(sealInfo,businessSysId,docType,businessSys.getFtpPath()+fileName);
+                        int result1 = doSealInfo_1(sealInfo,businessSysId,docType,FtpPath+fileName);
                         switch (result1){
                             case 1:
                                 dataResult.setResultType(false);
@@ -547,7 +671,7 @@ public class SendFileDataHandler {
                             break;
                         }
                     }
-                    source = new File(businessSys.getFtpPath()+fileName);
+                    source = new File(FtpPath+fileName);
                 } catch (Exception e) {
                     e.printStackTrace();
                     dataResult.setResultType(false);
@@ -595,7 +719,7 @@ public class SendFileDataHandler {
         long t1=System.currentTimeMillis();
         do{
             try {
-                Thread.sleep(500);
+                sleep(500);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -690,13 +814,13 @@ public class SendFileDataHandler {
         byte[] sealImg;
         if (seal.getSealImg() != null) {
             sealImg = ESSGetBase64Decode(seal.getSealImg().getSealImgGifBase64());
-            decoderBase64File(seal.getSealImg().getSealImgGifBase64(), Constant.imgPath);
+            decoderBase64File(seal.getSealImg().getSealImgGifBase64(), imgPath+signSerialNum+".gif");
         }else{
             //保存图片错误
             return 2;
         }
         //保存证书
-        decoderBase64File(seal.getCertificate().getPfxBase64(), Constant.pfxPath);
+        decoderBase64File(seal.getCertificate().getPfxBase64(), pfxPath+signSerialNum+".pfx");
         //获取证书密码
         String pwd = seal.getCertificate().getCerPsw();
 
@@ -739,15 +863,15 @@ public class SendFileDataHandler {
         //判断是否骑缝章
         if(sealInfo.isBlPagingSeal()){
             //骑缝章
-            addOverSeal(fileName,Constant.imgPath,Constant.pfxPath,pwd,signSerialNum,sealInfo.getiSealImgW(),sealInfo.getiSealImgH());
+            addOverSeal(fileName,imgPath+signSerialNum+".gif",pfxPath+signSerialNum+".pfx",pwd,signSerialNum,sealInfo.getiSealImgW(),sealInfo.getiSealImgH());
         }else{
             //单个签章
             addSeal(fileName,sealImg,sealInfo.getiSealImgW(),sealInfo.getiSealImgH(),sealInfo.getPageNum(),
-                    sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),Constant.pfxPath,pwd,signSerialNum);
+                    sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),pfxPath+signSerialNum+".pfx",pwd,signSerialNum);
         }
 
-//        addSignLog(provincialUserId,businessSysId,tjId,sjId,fileName,docType,signSerialNum,
-//                seal.getSealId(),seal.getUnitId());
+        addSignLog(provincialUserId,businessSysId,tjId,sjId,fileName,docType,signSerialNum,
+                seal.getSealId(),seal.getUnitId());
         return result;
     }
 
@@ -804,13 +928,13 @@ public class SendFileDataHandler {
         byte[] sealImg;
         if (seal.getSealImg() != null) {
             sealImg = ESSGetBase64Decode(seal.getSealImg().getSealImgGifBase64());
-            decoderBase64File(seal.getSealImg().getSealImgGifBase64(), Constant.imgPath);
+            decoderBase64File(seal.getSealImg().getSealImgGifBase64(), imgPath+signSerialNum+".gif");
         }else{
             //保存图片错误
             return 2;
         }
         //保存证书
-        decoderBase64File(seal.getCertificate().getPfxBase64(), Constant.pfxPath);
+        decoderBase64File(seal.getCertificate().getPfxBase64(), pfxPath+signSerialNum+".pfx");
         //获取证书密码
         String pwd = seal.getCertificate().getCerPsw();
 
@@ -854,13 +978,14 @@ public class SendFileDataHandler {
         if(sealInfo.isBlPagingSeal()){
             //单个签章
             addOverSealPage(fileName,sealImg,sealInfo.getiSealImgW(),sealInfo.getiSealImgH(),
-                    sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),Constant.pfxPath,pwd,signSerialNum);
+                    sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),pfxPath+signSerialNum+".pfx",pwd,signSerialNum);
         }else{
             //单个签章
             addSeal(fileName,sealImg,sealInfo.getiSealImgW(),sealInfo.getiSealImgH(),sealInfo.getPageNum(),
-                    sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),Constant.pfxPath,pwd,signSerialNum);
+                    sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),pfxPath+signSerialNum+".pfx",pwd,signSerialNum);
         }
-
+        addSignLog(provincialUserId,businessSysId,tjId,sjId,fileName,docType,signSerialNum,
+                seal.getSealId(),seal.getUnitId());
         return result;
     }
 
@@ -930,16 +1055,10 @@ public class SendFileDataHandler {
      * 以下为ftp处理上传下载的代码，放在类外会出现异常，暂时放在此处，待解决问题
      * 参数除了地址接口不可变外，用户名密码会根据上方方法参数改变
      */
-    //ftp地址
-    public static  String hostname = Constant.ftpIp;
-    //ftp端口
-    public static Integer port = Constant.ftpPort;
-    //ftp账号
-    public static String username = Constant.ftpUser;
-    //ftp密码
-    public static String password = Constant.ftpPwd;
+
 
     public static FTPClient ftpClient = null;
+
     private static void initFtpClient() {
         ftpClient = new FTPClient();
         ftpClient.setControlEncoding("utf-8");
@@ -949,215 +1068,112 @@ public class SendFileDataHandler {
             int replyCode = ftpClient.getReplyCode();
             if(!FTPReply.isPositiveCompletion(replyCode)){
             }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private  boolean uploadFile(String fileName,InputStream inputStream){
+        boolean blLogin = false;
+        boolean blConnect = false;
+        FTPClient ftpClient = null;
+        ftpClient = new FTPClient();
+
+        ftpClient.setControlEncoding("utf-8");
+        try {
+            ftpClient.connect(hostname, 21);
+            blConnect = true;
+            ftpClient.login(username, password);
+            int replyCode = ftpClient.getReplyCode();
+            if (!FTPReply.isPositiveCompletion(replyCode)) {
+                return false;
+            }
+            blLogin = true;
+            boolean blFtp = false;
+            ftpClient.setFileType(FTPClient.BINARY_FILE_TYPE);
+            blFtp = ftpClient.storeFile("/wordtopdf/" + fileName, inputStream);        //上传
+            inputStream.close();
+            ftpClient.logout();
+            blLogin = false;
+            ftpClient.disconnect();
+            blConnect = false;
+            return blFtp;
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (SocketException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (blLogin)
+                try {
+                    ftpClient.logout();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            if (blConnect)
+                try {
+                    ftpClient.disconnect();
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+        }
+        return false;
+    }
+
+
+    private static boolean downloadFile(String filename, String localPath){
+        boolean blLogin = false;
+        boolean blConnect = false;
+        FTPClient ftpClient = null;
+        ftpClient = new FTPClient();
+        ftpClient.setControlEncoding("utf-8");
+        try {
+            ftpClient.connect(hostname, 21);
+            blConnect = true;
+            ftpClient.login(username, password);
+            int replyCode = ftpClient.getReplyCode();
+            if(!FTPReply.isPositiveCompletion(replyCode)){
+                return false;
+            }
+            blLogin = true;
+            boolean blFtp = false;
+            ftpClient.setFileType(FTPClient.BINARY_FILE_TYPE);
+
+
+            File f = new File(localPath);
+            FileOutputStream fos = new FileOutputStream(f);
+            blFtp = ftpClient.retrieveFile("/wordtopdf/"+filename,fos );
+            fos.close();
+
+            ftpClient.logout();
+            blLogin = false;
+            ftpClient.disconnect();
+            blConnect = false;
+            return blFtp;
         }catch (MalformedURLException e) {
             e.printStackTrace();
         }catch (IOException e) {
             e.printStackTrace();
-        }
-    }
-    private static boolean uploadFile( String pathname, String fileName,String originfilename){
-        boolean flag = false;
-        InputStream inputStream = null;
-        try{
-            inputStream = new FileInputStream(new File(originfilename));
-            initFtpClient();
-            ftpClient.setFileType(ftpClient.BINARY_FILE_TYPE);
-            CreateDirecroty(pathname);
-            ftpClient.makeDirectory(pathname);
-            ftpClient.changeWorkingDirectory(pathname);
-            ftpClient.storeFile(fileName, inputStream);
-            inputStream.close();
-            ftpClient.logout();
-            flag = true;
-        }catch (Exception e) {
-            e.printStackTrace();
-            return flag;
         }finally{
-            if(ftpClient.isConnected()){
-                try{
-                    ftpClient.disconnect();
-                }catch(IOException e){
-                    e.printStackTrace();
-                }
-            }
-            if(null != inputStream){
+            if(blLogin)
                 try {
-                    inputStream.close();
+                    ftpClient.logout();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-            }
-        }
-        return true;
-    }
-
-    private static boolean uploadFile( String pathname, String fileName,InputStream inputStream){
-        boolean flag = false;
-        try{
-            initFtpClient();
-            ftpClient.setFileType(ftpClient.BINARY_FILE_TYPE);
-            CreateDirecroty(pathname);
-            ftpClient.makeDirectory(pathname);
-            ftpClient.changeWorkingDirectory(pathname);
-            ftpClient.storeFile(fileName, inputStream);
-            inputStream.close();
-            ftpClient.logout();
-            flag = true;
-        }catch (Exception e) {
-            e.printStackTrace();
-            return flag;
-        }finally{
-            if(ftpClient.isConnected()){
-                try{
-                    ftpClient.disconnect();
-                }catch(IOException e){
-                    e.printStackTrace();
-                }
-            }
-            if(null != inputStream){
+            if(blConnect)
                 try {
-                    inputStream.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        return true;
-    }
-    //?????��??
-    private static boolean changeWorkingDirectory(String directory) {
-        boolean flag = true;
-        try {
-            flag = ftpClient.changeWorkingDirectory(directory);
-            if (flag) {
-            } else {
-            }
-        } catch (IOException ioe) {
-            ioe.printStackTrace();
-        }
-        return flag;
-    }
-    private static boolean CreateDirecroty(String remote) throws IOException {
-        boolean success = true;
-        String directory = remote + "/";
-        if (!directory.equalsIgnoreCase("/") && !changeWorkingDirectory(new String(directory))) {
-            int start = 0;
-            int end = 0;
-            if (directory.startsWith("/")) {
-                start = 1;
-            } else {
-                start = 0;
-            }
-            end = directory.indexOf("/", start);
-            String path = "";
-            String paths = "";
-            while (true) {
-                String subDirectory = new String(remote.substring(start, end).getBytes("GBK"), "iso-8859-1");
-                path = path + "/" + subDirectory;
-                if (!existFile(path)) {
-                    if (makeDirectory(subDirectory)) {
-                        changeWorkingDirectory(subDirectory);
-                    } else {
-                        changeWorkingDirectory(subDirectory);
-                    }
-                } else {
-                    changeWorkingDirectory(subDirectory);
-                }
-
-                paths = paths + "/" + subDirectory;
-                start = end + 1;
-                end = directory.indexOf("/", start);
-                if (end <= start) {
-                    break;
-                }
-            }
-        }
-        return success;
-    }
-    private static boolean existFile(String path) throws IOException {
-        boolean flag = false;
-        FTPFile[] ftpFileArr = ftpClient.listFiles(path);
-        if (ftpFileArr.length > 0) {
-            flag = true;
-        }
-        return flag;
-    }
-    private static boolean makeDirectory(String dir) {
-        boolean flag = true;
-        try {
-            flag = ftpClient.makeDirectory(dir);
-            if (flag) {
-
-            } else {
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return flag;
-    }
-
-
-    private static boolean downloadFile(String pathname, String filename, String localpath){
-        boolean flag = false;
-        OutputStream os=null;
-        try {
-            initFtpClient();
-            ftpClient.changeWorkingDirectory(pathname);
-            FTPFile[] ftpFiles = ftpClient.listFiles();
-            for(FTPFile file : ftpFiles){
-                if(filename.equalsIgnoreCase(file.getName())){
-                    File localFile = new File(localpath);
-                    os = new FileOutputStream(localFile);
-                    ftpClient.retrieveFile(file.getName(), os);
-                    os.close();
-                }
-            }
-            ftpClient.logout();
-            flag = true;
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally{
-            if(ftpClient.isConnected()){
-                try{
                     ftpClient.disconnect();
-                }catch(IOException e){
-                    e.printStackTrace();
-                }
-            }
-            if(null != os){
-                try {
-                    os.close();
                 } catch (IOException e) {
+                    // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
-            }
         }
-        return flag;
-    }
 
-    private static boolean deleteFile(String pathname, String filename){
-        boolean flag = false;
-        try {
-            initFtpClient();
-            //?��?FTP??
-            ftpClient.changeWorkingDirectory(pathname);
-            ftpClient.dele(filename);
-            ftpClient.logout();
-            flag = true;
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if(ftpClient.isConnected()){
-                try{
-                    ftpClient.disconnect();
-                }catch(IOException e){
-                    e.printStackTrace();
-                }
-            }
-        }
-        return flag;
+        return false;
     }
-
 
 
 }

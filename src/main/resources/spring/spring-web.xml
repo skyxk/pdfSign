@@ -23,9 +23,9 @@
 	 -->
 	<mvc:default-servlet-handler/>
 	<!-- 静态资源访问  -->
-	<mvc:resources mapping="js/**" location="js/"/>
-	<mvc:resources mapping="css/**" location="css/"/>
-	<mvc:resources mapping="images/**" location="images/"/>
+	<!--<mvc:resources mapping="js/**" location="js/"/>-->
+	<!--<mvc:resources mapping="css/**" location="css/"/>-->
+	<!--<mvc:resources mapping="images/**" location="images/"/>-->
 
 	 <!-- 3.配置jsp 显示ViewResolver -->
 	 <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
@@ -67,9 +67,17 @@
 
 
 	 <!-- 4.扫描web相关的bean -->
-	 <context:component-scan base-package="com.clt.ess.web" />
+	 <context:component-scan base-package="com.clt.ess.webservice" />
 
 
-	<!-- 多部分文件上传 -->
+	<!-- 第二种方式是使用注解的方式注入，主要用在java代码中使用注解注入properties文件中相应的value值 -->
+	<bean id="prop" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+		<!--这里是PropertiesFactoryBean类，它也有个locations属性，也是接收一个数组，跟上面一样-->
+		<property name="locations">
+			<array>
+				<value>classpath:config.properties</value>
+			</array>
+		</property>
+	</bean>
 
 </beans>

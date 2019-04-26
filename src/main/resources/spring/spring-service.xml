@@ -19,15 +19,7 @@
 	</bean>
 
 
-	<!-- 第二种方式是使用注解的方式注入，主要用在java代码中使用注解注入properties文件中相应的value值 -->
-	<bean id="prop" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
-		<!--这里是PropertiesFactoryBean类，它也有个locations属性，也是接收一个数组，跟上面一样-->
-		<property name="locations">
-			<array>
-				<value>classpath:config.properties</value>
-			</array>
-		</property>
-	 </bean>
+
 
 
 
