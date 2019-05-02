@@ -52,7 +52,8 @@ public class SendFileDataHandler {
     private IPersonDao personDao;
     @Autowired
     private IUserDao userDao;
-
+    @Autowired
+    private IUnitRelationDao unitRelationDao;
 //    @Value("${Platform}")
     public static String Platform;
 //    @Value("${FileTempPath}")
@@ -794,6 +795,10 @@ public class SendFileDataHandler {
         }else{
             if(sealInfo.getsSealID()==null||"".equals(sealInfo.getsSealID())){
                 //公章，并且没有印章id,根据单位id和印章类型查找
+//                UnitRelation unitRelation = unitRelationDao.findUnitRelation(sealInfo.getsOrgID());
+//                if (unitRelation!=null){
+//                    sealInfo.setsOrgID(unitRelation.getParentunitcode());
+//                }
                 List<Unit> unitList = unitDao.findUnitByOrgId(sealInfo.getsOrgID(),businessSysId);
                 for (Unit unit :unitList){
                     seal = sealDao.findSealByUnitAndType(sealInfo.getsSealType(),unit.getUnitId());

@@ -1,11 +1,6 @@
 package com.clt.ess.utils;
 
-import com.clt.ess.webservice.SendFileDataHandler;
-
-import javax.jws.WebMethod;
 import java.io.*;
-import java.net.InetAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Iterator;
 import java.util.Properties;
@@ -22,7 +17,7 @@ public class SocketUtils {
             Iterator<String> it=prop.stringPropertyNames().iterator();
             while(it.hasNext()){
                 String key=it.next();
-                if ("FtpPath".equals(key)){
+                if ("FtpIp".equals(key)){
                     hostname=prop.getProperty(key);
                 }
             }
@@ -33,7 +28,7 @@ public class SocketUtils {
         }
     }
     public static boolean wordToPdfClient(String wordPath) {
-//        initData();
+        initData();
         int port = 9990;
         boolean blConnect = false;
         Socket socket = null;
@@ -42,7 +37,7 @@ public class SocketUtils {
 //        int ipAddressTemp[] = {10, 41, 0, 66};10.41.0.66
         try {
 //            InetAddress ipAddress = InetAddress.getByAddress(ipAddressTemp);
-            socket = new Socket("10.41.0.66", port);
+            socket = new Socket(hostname, port);
             socket.setSoTimeout(150000);
             blConnect = true;
             socketIn = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -83,24 +78,24 @@ public class SocketUtils {
     }
 
     public static void main(String[] args) {
-        Properties prop = new Properties();
-        try{
-            //读取属性文件a.properties
-            InputStream in = SocketUtils.class.getClassLoader().getResource("config.properties").openStream();
-            prop.load(in);     ///加载属性列表
-            Iterator<String> it=prop.stringPropertyNames().iterator();
-            while(it.hasNext()){
-                String key=it.next();
-                System.out.println(key+":"+prop.getProperty(key));
-            }
-            in.close();
-        }
-        catch(Exception e){
-            System.out.println(e);
-        }
+//        Properties prop = new Properties();
+//        try{
+//            //读取属性文件a.properties
+//            InputStream in = SocketUtils.class.getClassLoader().getResource("config.properties").openStream();
+//            prop.load(in);     ///加载属性列表
+//            Iterator<String> it=prop.stringPropertyNames().iterator();
+//            while(it.hasNext()){
+//                String key=it.next();
+//                System.out.println(key+":"+prop.getProperty(key));
+//            }
+//            in.close();
+//        }
+//        catch(Exception e){
+//            System.out.println(e);
+//        }
 
-
-        System.out.println(SocketUtils.class.getClassLoader().getResource(""));
+        initData();
+//        System.out.println(SocketUtils.class.getClassLoader().getResource(""));
     }
 
 
