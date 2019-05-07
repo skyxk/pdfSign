@@ -124,24 +124,27 @@ public class GetLocation {
 
 
     public static Location locationByBookMark(String filePath, String title) throws IOException {
-        Location location = null;
-
+        Location location = new Location();
 //        PDDocument document = PDDocument.load(new File(filePath));
         PdfReader reader1 = new PdfReader(filePath);
-        List<HashMap<String,Object>> bmList = SimpleBookmark.getBookmark(reader1);
-        for(HashMap<String,Object> hm :bmList){
-            if(title.equals(hm.get("Title"))) {
-                Object value = hm.get("Page");
-                String[] a = value.toString().split(" ");
-                location.setPageNum(Integer.parseInt(a[0]));
-                location.setX(Integer.parseInt(a[2]));
+        try {
+            List<HashMap<String,Object>> bmList = SimpleBookmark.getBookmark(reader1);
+            for(HashMap<String,Object> hm :bmList){
+                if(title.equals(hm.get("Title"))) {
+                    Object value = hm.get("Page");
+                    String[] a = value.toString().split(" ");
+                    location.setPageNum(Integer.parseInt(a[0]));
+                    location.setX(Integer.parseInt(a[2]));
 //                PDPage page  = document.getPage(Integer.parseInt(a[0])-1);
 //                int height = (int) page.getMediaBox().getHeight();
-                location.setY(Integer.parseInt(a[3]));
+                    location.setY(Integer.parseInt(a[3]));
+                }
             }
+        }catch (Exception e){
+            e.printStackTrace();
+        }finally {
+            reader1.close();
         }
-        reader1.close();
-//        document.close();
         return location;
     }
 

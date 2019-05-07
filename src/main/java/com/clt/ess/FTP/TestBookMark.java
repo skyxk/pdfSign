@@ -59,9 +59,12 @@ public class TestBookMark {
 //        reader.close();
 
         //书签定位
-        Location location = locationByBookMark("E:\\temp\\test1.pdf","sign_doc_1");
-
-        System.out.println(location.toString());
+//        Location location = locationByBookMark("D:\\temp\\demo.pdf","essword");
+//
+//        System.out.println(location.toString());
+        String value = "1 2 1";
+        String[] a = value.split(" ");
+        System.out.println(Integer.parseInt(a[0]));
     }
 
 }
