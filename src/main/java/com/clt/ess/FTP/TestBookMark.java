@@ -11,6 +11,7 @@ import com.itextpdf.text.Document;
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.pdf.*;
 
+import static com.clt.ess.utils.GetLocation.getLastKeyWord;
 import static com.clt.ess.utils.GetLocation.locationByBookMark;
 
 public class TestBookMark {
@@ -60,11 +61,9 @@ public class TestBookMark {
 
         //书签定位
 //        Location location = locationByBookMark("D:\\temp\\demo.pdf","essword");
-//
-//        System.out.println(location.toString());
-        String value = "1 2 1";
-        String[] a = value.split(" ");
-        System.out.println(Integer.parseInt(a[0]));
+        List<Location> list = getLastKeyWord("D:\\temp\\demo4.pdf","（印章）");
+        System.out.println(list.get(0).toString());
+
     }
 
 }

@@ -109,7 +109,9 @@ public class GetLocation {
                     fiList.addAll(list2);
                 }
 
-            } else if (i > 1) {
+            }else if(locations == null){
+                continue;
+            } else if (i > 0) {
                 //不是第一页的时候继续循环
                 continue;
             } else {
@@ -134,10 +136,10 @@ public class GetLocation {
                     Object value = hm.get("Page");
                     String[] a = value.toString().split(" ");
                     location.setPageNum(Integer.parseInt(a[0]));
-                    location.setX(Integer.parseInt(a[2]));
+                    location.setX(Float.parseFloat(a[2]));
 //                PDPage page  = document.getPage(Integer.parseInt(a[0])-1);
 //                int height = (int) page.getMediaBox().getHeight();
-                    location.setY(Integer.parseInt(a[3]));
+                    location.setY(Float.parseFloat(a[3]));
                 }
             }
         }catch (Exception e){
@@ -166,6 +168,7 @@ public class GetLocation {
             //如果大于-1 则代表出现了关键字的第一个字
             if ((lo = list.get(i).getText().indexOf(chars[0])) > -1) {
                 //进一步判断，获得该对象的所有文字内容
+
                 String s = list.get(i).getText();
                 //计数变量
                 int count=0;

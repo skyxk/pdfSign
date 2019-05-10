@@ -795,13 +795,14 @@ public class SendFileDataHandler {
         }else{
             if(sealInfo.getsSealID()==null||"".equals(sealInfo.getsSealID())){
                 //公章，并且没有印章id,根据单位id和印章类型查找
-//                UnitRelation unitRelation = unitRelationDao.findUnitRelation(sealInfo.getsOrgID());
-//                if (unitRelation!=null){
-//                    sealInfo.setsOrgID(unitRelation.getParentunitcode());
-//                }
+                UnitRelation unitRelation = unitRelationDao.findUnitRelation(sealInfo.getsOrgID());
+                if (unitRelation!=null){
+                    sealInfo.setsOrgID(unitRelation.getParentunitcode());
+                }
                 List<Unit> unitList = unitDao.findUnitByOrgId(sealInfo.getsOrgID(),businessSysId);
                 for (Unit unit :unitList){
                     seal = sealDao.findSealByUnitAndType(sealInfo.getsSealType(),unit.getUnitId());
+
                     if(seal.getSealId() == null||"".equals(seal.getSealId())){
                         break;
                     }
@@ -833,6 +834,8 @@ public class SendFileDataHandler {
         if(sealInfo.getLocationMode()==-1){
             //坐标定位
         }else if(sealInfo.getLocationMode()==0){
+            int x = sealInfo.getiOffsetX();
+            int y = sealInfo.getiOffsetY();
             //书签定位
             Location location = locationByBookMark(fileName,sealInfo.getsKeyWords());
             if(location==null){
@@ -841,8 +844,8 @@ public class SendFileDataHandler {
             }
 //            int x = sealInfo.getiOffsetX();
 //            int y = sealInfo.getiOffsetY();
-            sealInfo.setiOffsetX((int) location.getX());
-            sealInfo.setiOffsetY((int) location.getY());
+            sealInfo.setiOffsetX((int) location.getX()+x);
+            sealInfo.setiOffsetY((int) location.getY()+y);
             sealInfo.setPageNum(location.getPageNum());
         }else{
             //关键字定位
@@ -913,6 +916,10 @@ public class SendFileDataHandler {
         }else{
             if(sealInfo.getsSealID()==null||"".equals(sealInfo.getsSealID())){
                 //公章，并且没有印章id,根据单位id和印章类型查找
+                UnitRelation unitRelation = unitRelationDao.findUnitRelation(sealInfo.getsOrgID());
+                if (unitRelation!=null){
+                    sealInfo.setsOrgID(unitRelation.getParentunitcode());
+                }
                 List<Unit> unitList = unitDao.findUnitByOrgId(sealInfo.getsOrgID(),businessSysId);
                 for (Unit unit :unitList){
                     seal = sealDao.findSealByUnitAndType(sealInfo.getsSealType(),unit.getUnitId());
@@ -947,6 +954,8 @@ public class SendFileDataHandler {
         if(sealInfo.getLocationMode()==-1){
             //坐标定位
         }else if(sealInfo.getLocationMode()==0){
+            int x = sealInfo.getiOffsetX();
+            int y = sealInfo.getiOffsetY();
             //书签定位
             Location location = locationByBookMark(fileName,sealInfo.getsKeyWords());
             if(location==null){
@@ -955,8 +964,8 @@ public class SendFileDataHandler {
             }
 //            int x = sealInfo.getiOffsetX();
 //            int y = sealInfo.getiOffsetY();
-            sealInfo.setiOffsetX((int) location.getX());
-            sealInfo.setiOffsetY((int) location.getY());
+            sealInfo.setiOffsetX((int) location.getX()+x);
+            sealInfo.setiOffsetY((int) location.getY()+y);
             sealInfo.setPageNum(location.getPageNum());
         }else{
             //关键字定位
