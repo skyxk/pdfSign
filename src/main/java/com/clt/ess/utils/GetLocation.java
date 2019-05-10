@@ -88,39 +88,42 @@ public class GetLocation {
         char[] a = keyWord.replace(" ","").toLowerCase().toCharArray();
         try {
             reader = new PdfReader(pdfPath);
+            //获得pdf的页码
+            int num = reader.getNumberOfPages();
+            List<Location> locations = null;
+            //循环每一页 获得所有的关键字
+            for (int i = 0; i< num; i++) {
+                try {
+                    locations = getKeyWords(reader, i+1);
+                } catch (IOException e) {
+                    continue;
+                }
+                if (locations != null && locations.size() > 0) {
+                    //根据解析函数筛选包含的关键字（因为pdf中的文本是不规则长度和断句的需要进行筛选）
+                    List<Location> list2 = getLocationFromList(locations, a);
+                    if (list2 != null) {
+                        //把筛选到的内容放入集合中
+                        fiList.addAll(list2);
+                    }
+
+                }else if(locations == null){
+                    continue;
+                } else if (i > 0) {
+                    //不是第一页的时候继续循环
+                    continue;
+                } else {
+                    //到达第1页结束后关闭reader
+                    reader.close();
+                    return null;
+                }
+            }
         } catch (IOException e) {
             e.printStackTrace();
-        }
-        //获得pdf的页码
-        int num = reader.getNumberOfPages();
-        List<Location> locations = null;
-        //循环每一页 获得所有的关键字
-        for (int i = 0; i< num; i++) {
-            try {
-                locations = getKeyWords(reader, i+1);
-            } catch (IOException e) {
-                continue;
-            }
-            if (locations != null && locations.size() > 0) {
-                //根据解析函数筛选包含的关键字（因为pdf中的文本是不规则长度和断句的需要进行筛选）
-                List<Location> list2 = getLocationFromList(locations, a);
-                if (list2 != null) {
-                    //把筛选到的内容放入集合中
-                    fiList.addAll(list2);
-                }
-
-            }else if(locations == null){
-                continue;
-            } else if (i > 0) {
-                //不是第一页的时候继续循环
-                continue;
-            } else {
-                //到达第1页结束后关闭reader
+        }finally {
+            if (reader != null) {
                 reader.close();
-                return null;
             }
         }
-        reader.close();
         return fiList;
     }
 
