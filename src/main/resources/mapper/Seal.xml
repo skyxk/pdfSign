@@ -38,10 +38,8 @@
     </select>
 
     <select id="findSealByUnitAndType" resultMap="sealMap" >
-        SELECT * FROM seal where unitId = #{sOrgID} and sealTypeId = #{sealType}
+        SELECT * FROM seal where unitId = #{sOrgID} and sealTypeId = #{sealType} and sealState=1
     </select>
-
-
 
     <select id="findSealList" resultMap="sealMap">
         SELECT * FROM seal

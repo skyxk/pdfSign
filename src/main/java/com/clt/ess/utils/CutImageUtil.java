@@ -18,14 +18,14 @@ public class CutImageUtil {
      * @param index 水平方向等分切割数
      * @return List<String>   base64编码数组
      */
-    public static List<String> cutImageToBase64(String sourceFilePath, int index){
-        File file = new File(sourceFilePath);
-        if (file.exists()) {
-            return cutImageToBase64(file,index);
-        }else{
-            return null;
-        }
-    }
+//    public static List<String> cutImageToBase64(String sourceFilePath, int index){
+//        File file = new File(sourceFilePath);
+//        if (file.exists()) {
+//            return cutImageToBase64(file,index);
+//        }else{
+//            return null;
+//        }
+//    }
 
     /**
      * 切割图片
@@ -51,12 +51,13 @@ public class CutImageUtil {
      *            水平方向等分切割数
      * @return List<String> base64编码数组
      */
-    public static List<String> cutImageToBase64(File sourceFile, int index) {
+    public static List<String> cutImageToBase64(byte[] sourceFile, int index) {
         List<String> list = new ArrayList<String>();
-        int suffixIndex = sourceFile.getName().lastIndexOf(".");
-        String suffix = sourceFile.getName().substring(suffixIndex+1);
+//        int suffixIndex = sourceFile.getName().lastIndexOf(".");
+//        String suffix = sourceFile.getName().substring(suffixIndex+1);
         try {
-            BufferedImage source = ImageIO.read(sourceFile);
+            ByteArrayInputStream inpic = new ByteArrayInputStream(sourceFile);
+            BufferedImage source = ImageIO.read(inpic);
             int width = source.getWidth(); // 图片宽度
             int height = source.getHeight(); // 图片高度
             if (index>1) {

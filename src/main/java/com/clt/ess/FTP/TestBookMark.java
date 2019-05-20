@@ -60,10 +60,15 @@ public class TestBookMark {
 //        reader.close();
 
         //书签定位
-//        Location location = locationByBookMark("D:\\temp\\demo.pdf","essword");
-        List<Location> list = getLastKeyWord("D:\\temp\\demo4.pdf","（印章）");
-        System.out.println(list.get(0).toString());
-
+        Location location = locationByBookMark("D:\\temp\\demo4.pdf","SIGNATRUE1");
+//        List<Location> list = getLastKeyWord("D:\\temp\\demo4.pdf","SIGNATRUE1");
+        if(location==null){
+            //书签定位错误
+            System.out.println(1);
+        }else if(location.getPageNum()==0){
+            System.out.println(2);
+        }
+        System.out.println(location.toString());
     }
 
 }

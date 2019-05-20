@@ -545,12 +545,12 @@ public class WebSign {
 			int iW = iWidth;
 			int iH = iHeight;
 			
-			//先把高度控制在255以内
+			//先把高度控制在76以内
 			float fR = 0;
-			if(iH > 254)
+			if(iH > 76)
 			{
-				fR = iH / 254;
-				iH = 254;
+				fR = iH / 76;
+				iH = 76;
 			}
 			else
 				fR = 1;
@@ -558,10 +558,10 @@ public class WebSign {
 			float fW = (iW / fR);
 			float fH = iH;
 			fR = 0;
-			if(fW > 254)
+			if(fW > 126)
 			{
-				fR = fW / 254;
-				fW = 254;
+				fR = fW / 126;
+				fW = 126;
 			}
 			else
 				fR = 1;

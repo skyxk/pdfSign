@@ -17,12 +17,14 @@ import org.springframework.beans.factory.annotation.Value;
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
 import javax.activation.FileDataSource;
+import javax.imageio.ImageIO;
 import javax.jws.WebMethod;
 import javax.jws.WebParam;
 import javax.jws.WebService;
 import javax.security.cert.CertificateException;
 import javax.xml.bind.annotation.XmlMimeType;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.MalformedURLException;
 import java.net.SocketException;
@@ -77,6 +79,8 @@ public class SendFileDataHandler {
 //    @Value("${FtpPwd}")
     public static String password;
 
+    public static String WHITESIGNSYSTEMID;
+
     private static void initData() {
         Properties prop = new Properties();
         try{
@@ -113,6 +117,9 @@ public class SendFileDataHandler {
                         continue;
                     case "FtpPwd":
                         password =prop.getProperty(key);
+                        continue;
+                    case "WHITESIGNSYSTEMID":
+                        WHITESIGNSYSTEMID =prop.getProperty(key);
                         continue;
 //                    default:break;
                 }
@@ -650,23 +657,24 @@ public class SendFileDataHandler {
                             case 1:
                                 dataResult.setResultType(false);
                                 dataResult.setResultMessage("查找印章错误");
-                                break;
+                                return dataResult;
                             case 2:
                                 dataResult.setResultType(false);
                                 dataResult.setResultMessage("保存图片错误");
-                                break;
+                                return dataResult;
                             case 3:
                                 dataResult.setResultType(false);
                                 dataResult.setResultMessage("书签定位错误");
-                                break;
+                                return dataResult;
                             case 4:
                                 dataResult.setResultType(false);
                                 dataResult.setResultMessage("关键字定位错误");
-                                break;
+                                return dataResult;
                             case 5:
                                 dataResult.setResultType(false);
                                 dataResult.setResultMessage("未知错误");
-                                break;
+                                return dataResult;
+
                         }
                         if(result1!=0){
                             break;
@@ -677,15 +685,18 @@ public class SendFileDataHandler {
                     e.printStackTrace();
                     dataResult.setResultType(false);
                     dataResult.setResultMessage("签章过程异常");
+                    return dataResult;
                 }
             }else{
                 dataResult.setResultType(false);
                 dataResult.setResultMessage("业务系统查询失败");
+                return dataResult;
             }
 
         }else {
             dataResult.setResultType(false);
             dataResult.setResultMessage("签章信息确实");
+            return dataResult;
         }
 
         if(dataResult.getResultType()){
@@ -801,8 +812,12 @@ public class SendFileDataHandler {
                 }
                 List<Unit> unitList = unitDao.findUnitByOrgId(sealInfo.getsOrgID(),businessSysId);
                 for (Unit unit :unitList){
-                    seal = sealDao.findSealByUnitAndType(sealInfo.getsSealType(),unit.getUnitId());
-
+                    try{
+                        seal = sealDao.findSealByUnitAndType(sealInfo.getsSealType(),unit.getUnitId());
+                    }catch (Exception e){
+                        e.printStackTrace();
+                        return 1;
+                    }
                     if(seal.getSealId() == null||"".equals(seal.getSealId())){
                         break;
                     }
@@ -820,11 +835,28 @@ public class SendFileDataHandler {
         byte[] sealImg;
         if (seal.getSealImg() != null) {
             sealImg = ESSGetBase64Decode(seal.getSealImg().getSealImgGifBase64());
-            decoderBase64File(seal.getSealImg().getSealImgGifBase64(), imgPath+signSerialNum+".gif");
+//            decoderBase64File(seal.getSealImg().getSealImgGifBase64(), imgPath+signSerialNum+".gif");
         }else{
             //保存图片错误
             return 2;
         }
+        //根据配置文件中的业务系统id判断是否需要对手写签名进行白底处理
+        if(sealInfo.getsSealType().contains("st7")&&WHITESIGNSYSTEMID.contains(businessSysId)){
+            ByteArrayInputStream inpic = new ByteArrayInputStream(sealImg);
+            BufferedImage bufferedImage = ImageIO.read(inpic);
+
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            //2.创建一个空白大小相同的RGB背景
+            BufferedImage newBufferedImage = new BufferedImage(bufferedImage.getWidth(),
+                    bufferedImage.getHeight(), BufferedImage.TYPE_INT_RGB);
+            newBufferedImage.createGraphics().drawImage(bufferedImage, 0, 0, Color.WHITE, null);
+
+            ImageIO.write(newBufferedImage,"png",output);
+
+            sealImg = output.toByteArray();
+            output.close();
+        }
+
         //保存证书
         decoderBase64File(seal.getCertificate().getPfxBase64(), pfxPath+signSerialNum+".pfx");
         //获取证书密码
@@ -834,44 +866,47 @@ public class SendFileDataHandler {
         if(sealInfo.getLocationMode()==-1){
             //坐标定位
         }else if(sealInfo.getLocationMode()==0){
-            int x = sealInfo.getiOffsetX();
-            int y = sealInfo.getiOffsetY();
-            //书签定位
-            Location location = locationByBookMark(fileName,sealInfo.getsKeyWords());
-            if(location==null){
-                //书签定位错误
-               return 3;
-            }
-//            int x = sealInfo.getiOffsetX();
-//            int y = sealInfo.getiOffsetY();
-            sealInfo.setiOffsetX((int) location.getX()+x);
-            sealInfo.setiOffsetY((int) location.getY()+y);
-            sealInfo.setPageNum(location.getPageNum());
-        }else{
-            //关键字定位
-            int x = sealInfo.getiOffsetX();
-            int y = sealInfo.getiOffsetY();
-            //
-            List<Location> list = getLastKeyWord(fileName,sealInfo.getsKeyWords().toLowerCase());
-            Location location = null;
-            if (list != null && list.size() >= sealInfo.getLocationMode() ) {
-                //确定
-                location =list.get(sealInfo.getLocationMode() - 1);
-            }
-            if(location!=null){
-                //根据偏移量修正坐标
+            if(!sealInfo.isBlPagingSeal()){
+                int x = sealInfo.getiOffsetX();
+                int y = sealInfo.getiOffsetY();
+                //书签定位
+                Location location = locationByBookMark(fileName,sealInfo.getsKeyWords());
+                if(location==null){
+                    //书签定位错误
+                    return 3;
+                }
                 sealInfo.setiOffsetX((int) location.getX()+x);
                 sealInfo.setiOffsetY((int) location.getY()+y);
                 sealInfo.setPageNum(location.getPageNum());
-            }else{
-                //关键字定位错误
-                return 4;
             }
+        }else{
+            if(!sealInfo.isBlPagingSeal()){
+                //关键字定位
+                int x = sealInfo.getiOffsetX();
+                int y = sealInfo.getiOffsetY();
+                //
+                List<Location> list = getLastKeyWord(fileName,sealInfo.getsKeyWords().toLowerCase());
+                Location location = null;
+                if (list != null && list.size() >= sealInfo.getLocationMode() ) {
+                    //确定
+                    location =list.get(sealInfo.getLocationMode() - 1);
+                }
+                if(location!=null){
+                    //根据偏移量修正坐标
+                    sealInfo.setiOffsetX((int) location.getX()+x);
+                    sealInfo.setiOffsetY((int) location.getY()+y);
+                    sealInfo.setPageNum(location.getPageNum());
+                }else{
+                    //关键字定位错误
+                    return 4;
+                }
+            }
+
         }
         //判断是否骑缝章
         if(sealInfo.isBlPagingSeal()){
             //骑缝章
-            addOverSeal(fileName,imgPath+signSerialNum+".gif",pfxPath+signSerialNum+".pfx",pwd,signSerialNum,sealInfo.getiSealImgW(),sealInfo.getiSealImgH());
+            addOverSeal(fileName,sealImg,pfxPath+signSerialNum+".pfx",pwd,signSerialNum,sealInfo.getiSealImgW(),sealInfo.getiSealImgH());
         }else{
             //单个签章
             addSeal(fileName,sealImg,sealInfo.getiSealImgW(),sealInfo.getiSealImgH(),sealInfo.getPageNum(),
@@ -882,7 +917,6 @@ public class SendFileDataHandler {
                 seal.getSealId(),seal.getUnitId());
         return result;
     }
-
 
     /**
      * 根据签章信息处理，并进行签章动作
@@ -940,16 +974,31 @@ public class SendFileDataHandler {
         byte[] sealImg;
         if (seal.getSealImg() != null) {
             sealImg = ESSGetBase64Decode(seal.getSealImg().getSealImgGifBase64());
-            decoderBase64File(seal.getSealImg().getSealImgGifBase64(), imgPath+signSerialNum+".gif");
         }else{
             //保存图片错误
             return 2;
+        }
+        //根据配置文件中的业务系统id判断是否需要对手写签名进行白底处理
+        if(sealInfo.getsSealType().contains("st7")&&WHITESIGNSYSTEMID.contains(businessSysId)){
+            ByteArrayInputStream inpic = new ByteArrayInputStream(sealImg);
+            BufferedImage bufferedImage = ImageIO.read(inpic);
+
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            //2.创建一个空白大小相同的RGB背景
+            BufferedImage newBufferedImage = new BufferedImage(bufferedImage.getWidth(),
+                    bufferedImage.getHeight(), BufferedImage.TYPE_INT_RGB);
+            newBufferedImage.createGraphics().drawImage(bufferedImage, 0, 0, Color.WHITE, null);
+
+            ImageIO.write(newBufferedImage,"png",output);
+
+            sealImg = output.toByteArray();
+            output.close();
         }
         //保存证书
         decoderBase64File(seal.getCertificate().getPfxBase64(), pfxPath+signSerialNum+".pfx");
         //获取证书密码
         String pwd = seal.getCertificate().getCerPsw();
-
+        sealInfo.setPageNum(1);
         //确认定位方式
         if(sealInfo.getLocationMode()==-1){
             //坐标定位
@@ -962,8 +1011,6 @@ public class SendFileDataHandler {
                 //书签定位错误
                 return 3;
             }
-//            int x = sealInfo.getiOffsetX();
-//            int y = sealInfo.getiOffsetY();
             sealInfo.setiOffsetX((int) location.getX()+x);
             sealInfo.setiOffsetY((int) location.getY()+y);
             sealInfo.setPageNum(location.getPageNum());

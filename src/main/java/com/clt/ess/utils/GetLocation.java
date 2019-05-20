@@ -129,19 +129,18 @@ public class GetLocation {
 
 
     public static Location locationByBookMark(String filePath, String title) throws IOException {
-        Location location = new Location();
+        Location location = null;
 //        PDDocument document = PDDocument.load(new File(filePath));
         PdfReader reader1 = new PdfReader(filePath);
         try {
             List<HashMap<String,Object>> bmList = SimpleBookmark.getBookmark(reader1);
             for(HashMap<String,Object> hm :bmList){
                 if(title.equals(hm.get("Title"))) {
+                    location = new Location();
                     Object value = hm.get("Page");
                     String[] a = value.toString().split(" ");
                     location.setPageNum(Integer.parseInt(a[0]));
                     location.setX(Float.parseFloat(a[2]));
-//                PDPage page  = document.getPage(Integer.parseInt(a[0])-1);
-//                int height = (int) page.getMediaBox().getHeight();
                     location.setY(Float.parseFloat(a[3]));
                 }
             }
