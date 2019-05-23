@@ -528,50 +528,29 @@ public class WebSign {
 		ImageIcon icon = new ImageIcon(image);
 		int iHeight = icon.getIconHeight();
 		int iWidth = icon.getIconWidth();
-		
-		
-//		double fR = 0.0;
-//		if(iHeight > 76){
-//			fR = iHeight / 76;
-//			iHeight = 76;
-//		}
-//		int iW = icon.getIconWidth();
-//		if(fR > 0)
-//		{
-//			iW = (int)(iW / fR);
-//		}
-		
-		if(true){
-			int iW = iWidth;
-			int iH = iHeight;
-			
-			//先把高度控制在76以内
-			float fR = 0;
-			if(iH > 76)
-			{
-				fR = iH / 76;
-				iH = 76;
-			}
+
+		if(iWidth > 126 || iHeight > 76) {
+			float fW = iWidth;
+			float fH = iHeight;
+
+			float fwr = (float)(fW / 126.0);
+			float fhr = (float)(fH / 76.0);
+
+			float fr;
+			if (fwr > fhr)
+				fr = fwr;
 			else
-				fR = 1;
-			//根据高度缩小到比例，缩小宽度
-			float fW = (iW / fR);
-			float fH = iH;
-			fR = 0;
-			if(fW > 126)
-			{
-				fR = fW / 126;
-				fW = 126;
-			}
-			else
-				fR = 1;
-			//根据宽度缩减到比例再次缩小高度
-			fH = iH / fR;
-			iW = (int)fW;
-			iH = (int)fH;
-			
-			iHeight = iH;
-			iWidth = iW;
+				fr = fhr;
+			fW = fW / fr;
+			fH = fH / fr;
+
+			iHeight = (int)fH;
+			iWidth = (int)fW;
+
+			if((fW - iWidth) > 0.5)
+				iWidth = iWidth + 1;
+			if((fH - iHeight) > 0.5)
+				iHeight = iHeight + 1;
 		}
 		
 		stemp = stemp + Integer.toString(iWidth);
