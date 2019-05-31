@@ -1,7 +1,11 @@
 package com.clt.ess.FTP;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.security.GeneralSecurityException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
@@ -10,13 +14,17 @@ import com.clt.ess.utils.Location;
 import com.itextpdf.text.Document;
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.pdf.*;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageTree;
 
 import static com.clt.ess.utils.GetLocation.getLastKeyWord;
 import static com.clt.ess.utils.GetLocation.locationByBookMark;
+import static com.clt.ess.utils.Sign.addSeal;
 
 public class TestBookMark {
 
-    public static void main(String[] args) throws IOException, DocumentException {
+    public static void main(String[] args) throws IOException, DocumentException, GeneralSecurityException {
         // TODO Auto-generated method stub
 //        PdfReader reader = new PdfReader("E:\\temp\\demo.pdf");
 //
@@ -60,15 +68,28 @@ public class TestBookMark {
 //        reader.close();
 
         //书签定位
-        Location location = locationByBookMark("D:\\temp\\demo4.pdf","SIGNATRUE1");
-//        List<Location> list = getLastKeyWord("D:\\temp\\demo4.pdf","SIGNATRUE1");
-        if(location==null){
-            //书签定位错误
-            System.out.println(1);
-        }else if(location.getPageNum()==0){
-            System.out.println(2);
-        }
-        System.out.println(location.toString());
+//        Location location = locationByBookMark("D:\\temp\\demo10.pdf","SIGNATRUE1");
+////        List<Location> list = getLastKeyWord("D:\\temp\\demo4.pdf","SIGNATRUE1");
+//        if(location==null){
+//            //书签定位错误
+//            System.out.println(1);
+//        }else if(location.getPageNum()==0){
+//            System.out.println(2);
+//        }
+//        System.out.println(location.toString());
+
+
+        File file = new File("C:\\Users\\陈晓坤\\Desktop\\国徽章\\透明度25.png");
+        byte[] imgByte = Files.readAllBytes(file.toPath());
+
+//        addSeal("D:\\temp\\demo11.pdf",imgByte,141,141,1,350,700,
+//                "D:\\temp\\rootjs.pfx",
+//                "111111","123456");
+        file = new File("C:\\Users\\陈晓坤\\Desktop\\国徽章\\seal.png");
+        imgByte = Files.readAllBytes(file.toPath());
+        addSeal("D:\\temp\\demo13.pdf",imgByte,141,141,1,290,150,
+                "D:\\temp\\rootjs.pfx",
+                "111111","123456");
     }
 
 }

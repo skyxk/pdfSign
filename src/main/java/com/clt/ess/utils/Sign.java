@@ -122,6 +122,7 @@ public class Sign {
             appearance.setFieldLockDict(dictionary);
             appearance.setReason(signSerialNum);
             appearance.setImage(pic);
+
             //此处的fieldName 每个文档只能有一个，不能重名
             appearance.setVisibleSignature(
                     new Rectangle(x-width/2, y-heigth/2, x + width/2,

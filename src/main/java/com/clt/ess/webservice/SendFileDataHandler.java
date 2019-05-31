@@ -154,6 +154,8 @@ public class SendFileDataHandler {
         }
         return  imgDataList;
     }
+
+
     /**
      * 提供南京市OA根据身份证号或者
      * @param data json格式的参数 {"sSysID":"","sSysPersonID":"","fImgW":"","fImgH":"","sAuthInfo":""}
@@ -1236,7 +1238,9 @@ public class SendFileDataHandler {
         paramMap.put("unitId",unitId);
         paramMap.put("sealId",sealId);
         String HttpResult = HttpClient.doPost(url,paramMap);
-        //返回数据格式{"EssResultPre":"ESSRESULT","verson":"1.0.0",'msg':'1'}
+        //返回数据格式{"EssResultPre":"ESSRESULT","verson":"1.0.0",'msg':'1'}\
+        System.out.println("------------------------------------------------------------------------------------");
+        System.out.println(HttpResult);
         JSONObject jsonObject = new JSONObject(HttpResult);
         if(jsonObject.getInt("msg")!=1){
             //写入日志失败

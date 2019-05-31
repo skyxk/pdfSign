@@ -19,9 +19,9 @@ public class Constant {
     //检查授权url
     public static final String checkJurUrl = "http://10.40.4.7:8080/SealCenter/seal/pdfSignAbtCheckJur";
     //写签章日志接口
-    public static final String addSignLogInServerUrl = "http://192.144.176.134:8081/SealCenter/seal/pdfSignAbtAddSignLogInServer";
+    public static final String addSignLogInServerUrl = "http://10.40.4.7:8080/SealCenter/seal/pdfSignAbtAddSignLogInServer";
     //查询日志的接口
-    public static final String essClientQuerySignLogBySerialNum="http://192.144.176.134:8081/SealCenter/seal/essClientQuerySignLogBySerialNum";
+    public static final String essClientQuerySignLogBySerialNum="http://10.40.4.7:8080/SealCenter/seal/essClientQuerySignLogBySerialNum";
     //校验是否符合授权条件url
     public static final String pdfSignAbtCheckJurLimitMsg = "http://10.40.4.7:8080/SealCenter/seal/pdfSignAbtCheckJurLimitMsg";
     //文件类型编码
