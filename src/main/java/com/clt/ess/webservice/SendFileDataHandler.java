@@ -496,8 +496,8 @@ public class SendFileDataHandler {
         String SignSerialNum = jsonObject.getString("SignSerialNum");
         String encodeType = jsonObject.getString("encodeType");
         int imgType = jsonObject.getInt("resultType");
-        int imgW = jsonObject.getInt("imgW");
-        int imgH = jsonObject.getInt("imgH");
+        float imgW = jsonObject.getInt("imgW");
+        float imgH = jsonObject.getInt("imgH");
 
         WebSign ws = new WebSign();
         if (!"".equals(encodeData)&&!"".equals(imageData)&&!"".equals(plainText)&&"".equals(SignSerialNum)){
@@ -584,6 +584,7 @@ public class SendFileDataHandler {
             }
         }
 
+
         //TODO
         //如果查询的手写签名是南京市范围内的，则返回
         //获取图像字符节
@@ -595,17 +596,14 @@ public class SendFileDataHandler {
             bufferedImage = ImageIO.read(inpic);
         } catch (IOException e) {
             e.printStackTrace();
-            result.put("code","103");
-            result.put("message","图片处理异常");
-            return result.toString();
+            result.put("gifBase64",Constant.errImg);
         }
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         //2.创建一个空白大小相同的RGB背景
         //比例缩放  同时为空 ，不缩放  一个为空 比例缩放；
 //            if ("".equals(imgData.getImgW()))
         //传入
-        float imgW = imgData.getImgW();
-        float imgH = imgData.getImgH();
+
         //原大小
         float sW= bufferedImage.getWidth();
         float sH= bufferedImage.getHeight();
@@ -638,17 +636,12 @@ public class SendFileDataHandler {
             output.close();
         } catch (IOException e) {
             e.printStackTrace();
-            result.put("code","103");
-            result.put("message","图片处理异常");
-            return result.toString();
+            result.put("gifBase64",Constant.errImg);
         }
-        String name  = seal.getSealName();
-        String imgBase64 = ESSGetBase64Encode(bGif);
-        result.put("code","200");
-        result.put("message","查询成功");
-        result.put("name",name);
-        result.put("imgBase64",imgBase64);
 
+
+        String imgBase64 = ESSGetBase64Encode(bGif);
+        result.put("gifBase64",imgBase64);
 
         if (imgType ==0){
             return result.toString();
