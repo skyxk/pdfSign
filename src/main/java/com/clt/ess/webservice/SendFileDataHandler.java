@@ -386,7 +386,6 @@ public class SendFileDataHandler {
         String sealTime ="";
         String bsUnitName ="";
         String url ="";
-
         WebSign ws = new WebSign();
         if (!"".equals(encodeData)&&!"".equals(imageData)&&!"".equals(plainText)&&"".equals(SignSerialNum)){
             if(ws.VerifyData(plainText, encodeType,encodeData, imageData)) {
@@ -478,6 +477,191 @@ public class SendFileDataHandler {
             return result.toString();
         }
     }
+
+    @WebMethod
+    public String WebServerHandWritingVerify(@WebParam(name = "jsonData") String jsonData){
+        initData();
+        JSONObject result = new JSONObject();
+        String sealName ="";
+        String gifBase64 ="";
+        String sealTime ="";
+        String bsUnitName ="";
+        String url ="";
+
+        JSONObject jsonObject = new JSONObject(jsonData);
+
+        String encodeData = jsonObject.getString("encodeData");
+        String imageData = jsonObject.getString("imageData");
+        String plainText = jsonObject.getString("plainText");
+        String SignSerialNum = jsonObject.getString("SignSerialNum");
+        String encodeType = jsonObject.getString("encodeType");
+        int imgType = jsonObject.getInt("resultType");
+        int imgW = jsonObject.getInt("imgW");
+        int imgH = jsonObject.getInt("imgH");
+
+        WebSign ws = new WebSign();
+        if (!"".equals(encodeData)&&!"".equals(imageData)&&!"".equals(plainText)&&"".equals(SignSerialNum)){
+            if(ws.VerifyData(plainText, encodeType,encodeData, imageData)) {
+                result.put("resultType","true");
+                result.put("gifBase64",ws.PictureData);
+                result.put("sealTime",ws.SealTime);
+            }else{
+                try {
+                    result.put("resultType","false");
+                    result.put("errorCode",ws.ErrorCode);
+                    if("".equals(ws.PictureData)){
+                        result.put("gifBase64",Constant.errImg);
+                    }else{
+                        result.put("gifBase64",addMarkErrorText(ws.PictureData));
+                    }
+                } catch (IOException e) {
+                    result.put("resultType","false");
+                    result.put("errorCode","10004");
+                    result.put("gifBase64",Constant.errImg);
+                }
+            }
+        }
+        if ("".equals(encodeData)&&"".equals(imageData)&&"".equals(plainText)&&!"".equals(SignSerialNum)){
+            url =Constant.essClientQuerySignLogBySerialNum+"?serialNum="+SignSerialNum;
+            //根据签章序列号获取签章日志
+            String HttpResult = HttpClient.doGet(url);
+            JSONObject jsonObject_1 = new JSONObject(HttpResult);
+            sealTime = jsonObject_1.getString("signTime");
+            String sealId = jsonObject_1.getString("sealId");
+            String businessSysId = jsonObject_1.getString("businessSysId");
+            Seal seal = sealDao.findSealById(sealId);
+
+            String idNum = seal.getSealHwIdNum();
+            Person person = personDao.findPersonByIdNum(idNum);
+
+            String signUserName = person.getPersonName();
+            sealName = seal.getSealName();
+            gifBase64 = seal.getSealImg().getSealImgGifBase64();
+
+            bsUnitName = unitDao.findBSUnitNameById(businessSysId);
+            result.put("resultType","true");
+            result.put("sealName",sealName);
+            result.put("sealTime",sealTime);
+            result.put("signUserName",signUserName);
+            result.put("bsSystemName",bsUnitName);
+        }
+        if(!"".equals(encodeData)&&!"".equals(imageData)&&!"".equals(plainText)&&!"".equals(SignSerialNum)){
+            url =Constant.essClientQuerySignLogBySerialNum+"?serialNum="+SignSerialNum;
+            //根据签章序列号获取签章日志
+            String HttpResult = HttpClient.doGet(url);
+            JSONObject jsonObject_1 = new JSONObject(HttpResult);
+            sealTime = jsonObject_1.getString("signTime");
+            String sealId = jsonObject_1.getString("sealId");
+            String businessSysId = jsonObject_1.getString("businessSysId");
+            Seal seal = sealDao.findSealById(sealId);
+
+            String idNum = seal.getSealHwIdNum();
+            Person person = personDao.findPersonByIdNum(idNum);
+
+            String signUserName = person.getPersonName();
+            sealName = seal.getSealName();
+            gifBase64 = seal.getSealImg().getSealImgGifBase64();
+
+
+            bsUnitName = unitDao.findBSUnitNameById(businessSysId);
+            result.put("resultType","true");
+            result.put("sealName",sealName);
+            result.put("sealTime",sealTime);
+            result.put("signUserName",signUserName);
+            result.put("bsSystemName",bsUnitName);
+            if(ws.VerifyData(plainText, encodeType,encodeData, imageData)) {
+                result.put("gifBase64",gifBase64);
+            }else{
+                try {
+                    result.put("resultType","false");
+                    result.put("errorCode",ws.ErrorCode);
+                    result.put("gifBase64",addMarkErrorText(gifBase64));
+                } catch (IOException e) {
+                    result.put("resultType","false");
+                    result.put("errorCode","10004");
+                    result.put("gifBase64",Constant.errImg);
+                }
+            }
+        }
+
+        //TODO
+        //如果查询的手写签名是南京市范围内的，则返回
+        //获取图像字符节
+        byte[] bGif = ESSGetBase64Decode(result.getString("gifBase64"));
+
+        ByteArrayInputStream inpic = new ByteArrayInputStream(bGif);
+        BufferedImage bufferedImage = null;
+        try {
+            bufferedImage = ImageIO.read(inpic);
+        } catch (IOException e) {
+            e.printStackTrace();
+            result.put("code","103");
+            result.put("message","图片处理异常");
+            return result.toString();
+        }
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        //2.创建一个空白大小相同的RGB背景
+        //比例缩放  同时为空 ，不缩放  一个为空 比例缩放；
+//            if ("".equals(imgData.getImgW()))
+        //传入
+        float imgW = imgData.getImgW();
+        float imgH = imgData.getImgH();
+        //原大小
+        float sW= bufferedImage.getWidth();
+        float sH= bufferedImage.getHeight();
+
+        float w = sW;
+        float h = sH;
+        if (imgW!=0 && imgH!=0){
+            //全匹配
+            w = imgW;
+            h = imgH;
+        }else if (imgW==0 && imgH !=0){
+            w = sW*imgH/sH;
+            h = imgH;
+            if((w - (int)w) > 0.5)
+                w = w + 1;
+        }else if(imgW !=0 && imgH==0){
+            w = imgW;
+            h = sH*imgW/sW;
+            if((h - (int)h) > 0.5)
+                h = h + 1;
+        }
+        BufferedImage bi = new BufferedImage((int)w, (int)h, BufferedImage.TYPE_4BYTE_ABGR);
+        Graphics g = bi.getGraphics();
+        g.drawImage(bufferedImage, 0, 0, (int)w, (int)h, null, null);
+        g.dispose();
+
+        try {
+            ImageIO.write(bi,"gif",output);
+            bGif = output.toByteArray();
+            output.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            result.put("code","103");
+            result.put("message","图片处理异常");
+            return result.toString();
+        }
+        String name  = seal.getSealName();
+        String imgBase64 = ESSGetBase64Encode(bGif);
+        result.put("code","200");
+        result.put("message","查询成功");
+        result.put("name",name);
+        result.put("imgBase64",imgBase64);
+
+
+        if (imgType ==0){
+            return result.toString();
+        }else if (imgType == 1){
+            return ws.GetImgHtml(SignSerialNum,result.getString("gifBase64"),sealName,sealTime,bsUnitName);
+        }else{
+            return result.toString();
+        }
+    }
+
+
+
+
     private String addMarkErrorText(String data) throws IOException {
         byte[] img = markImageBySingleText(ESSGetBase64Decode(data), Color.red,"——————————————",null);
         return ESSGetBase64Encode(img);
