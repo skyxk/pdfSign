@@ -477,9 +477,8 @@ public class SendFileDataHandler {
             return result.toString();
         }
     }
-
     @WebMethod
-    public String WebServerHandWritingVerify(@WebParam(name = "jsonData") String jsonData){
+    public String WebServerHandWritingVerifyJson(@WebParam(name = "jsonData") String jsonData){
         initData();
         JSONObject result = new JSONObject();
         String sealName ="";
@@ -493,11 +492,12 @@ public class SendFileDataHandler {
         String encodeData = jsonObject.getString("encodeData");
         String imageData = jsonObject.getString("imageData");
         String plainText = jsonObject.getString("plainText");
-        String SignSerialNum = jsonObject.getString("SignSerialNum");
+        String SignSerialNum = jsonObject.getString("signSerialNum");
         String encodeType = jsonObject.getString("encodeType");
         int imgType = jsonObject.getInt("resultType");
         float imgW = jsonObject.getInt("imgW");
         float imgH = jsonObject.getInt("imgH");
+
 
         WebSign ws = new WebSign();
         if (!"".equals(encodeData)&&!"".equals(imageData)&&!"".equals(plainText)&&"".equals(SignSerialNum)){
@@ -583,8 +583,6 @@ public class SendFileDataHandler {
                 }
             }
         }
-
-
         //TODO
         //如果查询的手写签名是南京市范围内的，则返回
         //获取图像字符节
@@ -638,8 +636,6 @@ public class SendFileDataHandler {
             e.printStackTrace();
             result.put("gifBase64",Constant.errImg);
         }
-
-
         String imgBase64 = ESSGetBase64Encode(bGif);
         result.put("gifBase64",imgBase64);
 
