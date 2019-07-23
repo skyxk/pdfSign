@@ -895,6 +895,7 @@ public class SendFileDataHandler {
         }
 
         if(dataResult.getResultType()){
+            System.out.println("签章成功"+new Date());
             dataResult.setResultMessage("签章成功");
             DataSource dataSource = new FileDataSource(source);
             dataResult.setDataHandler(new DataHandler(dataSource));
@@ -1030,6 +1031,7 @@ public class SendFileDataHandler {
         }
 
         if(dataResult.getResultType()){
+            System.out.println("签章成功"+new Date());
             dataResult.setResultMessage("签章成功");
             DataSource dataSource = new FileDataSource(source);
             dataResult.setDataHandler(new DataHandler(dataSource));
@@ -1185,6 +1187,10 @@ public class SendFileDataHandler {
 
             sealImg = output.toByteArray();
             output.close();
+
+
+
+
         }
 
         //保存证书
@@ -1370,7 +1376,6 @@ public class SendFileDataHandler {
                     return 4;
                 }
             }
-
         }
         //判断是否骑缝章
         if(sealInfo.getSignatureType()==1){

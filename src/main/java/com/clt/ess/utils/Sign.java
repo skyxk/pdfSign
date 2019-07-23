@@ -153,26 +153,13 @@ public class Sign {
                 in.close();
             }
         }
-
-
-
 //      file.getAbsolutePath();
     }
-
-
 
     public static void main(String[] args) throws IOException {
 
         File source = new File("E:\\temp\\demo.pdf");
         File dest = new File("E:\\temp\\demo1.pdf");
         Files.copy(source.toPath(), dest.toPath());
-//        addOverSeal(new File(Constant.pdfPath),Constant.imgPath,Constant.pfxPath,"111111");
-        //不是骑缝章
-//        File imgFile = new File(Constant.imgPath);
-//        InputStream input = new FileInputStream(imgFile);
-//        byte[] byt = new byte[input.available()];
-//        input.read(byt);
-//        addSeal(Constant.pdfPath,byt,159,159,1,200,
-//                200,Constant.pfxPath,"111111");
     }
 }

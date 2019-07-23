@@ -25,10 +25,9 @@
     </select>
 
     <select id="findUnitByOrgId" parameterType="java.lang.String" resultMap="unitMap">
-        SELECT * FROM businesssysunitandessunit
-        LEFT JOIN unit ON businesssysunitandessunit.unitId = unit.unitId
-        WHERE businesssysunitandessunit.businessSysUnitId =#{OrgID}
-	    AND businesssysunitandessunit.businessSysId = #{businessSysId}
+        select * from unit WHERE unitId in(SELECT unitId FROM businesssysunitandessunit
+                                          WHERE businesssysunitandessunit.businessSysUnitId =#{OrgID}
+                                            AND businesssysunitandessunit.businessSysId =#{businessSysId})
     </select>
 
     <select id="findBSUnitNameById" parameterType="java.lang.String" resultType="String">
