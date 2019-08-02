@@ -1,7 +1,5 @@
 package com.clt.ess.utils;
 
-import com.clt.ess.base.Constant;
-import com.itextpdf.text.BadElementException;
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.Image;
 import com.itextpdf.text.Rectangle;
@@ -15,14 +13,11 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageTree;
 
 import javax.imageio.ImageIO;
-import javax.imageio.stream.ImageOutputStream;
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.file.Files;
 import java.security.*;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,8 +29,6 @@ public class Sign {
         //PDF骑缝章签署过程
         //首先处理签章图片，
         //获取签章的页数
-
-
         PDDocument document = PDDocument.load(new File(pdfFile));
         int pageNum = document.getNumberOfPages();
         PDPageTree pages = document.getPages();
@@ -129,12 +122,14 @@ public class Sign {
                             y + heigth/2), pageNum,
                     "ESSPDFSign" + uuid);//fileName 一个文档中不能有重名的filedname
             appearance.setLayer2Text("");//设置文字为空否则签章上将会有文字 影响外观
+
             ExternalSignature es = new PrivateKeySignature(pk,
                     "SHA-256", "BC");
+
             ExternalDigest digest = new BouncyCastleDigest();
+
             MakeSignature.signDetached(appearance, digest, es,
                     chain, null, null, null, 0, MakeSignature.CryptoStandard.CMS);
-
         }catch (Exception e){
             e.printStackTrace();
         }finally {

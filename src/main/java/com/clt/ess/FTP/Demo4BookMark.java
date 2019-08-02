@@ -25,7 +25,7 @@ public class Demo4BookMark {
      * @param args
      */
     public static void main(String[] args) throws Exception {
-        String fileName = "E:\\temp\\demo.pdf";
+        String fileName = "d:\\temp\\demo.pdf";
         Demo4BookMark.testBookMarks(fileName);
     }
 

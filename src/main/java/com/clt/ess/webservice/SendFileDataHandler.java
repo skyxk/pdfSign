@@ -5,6 +5,7 @@ import com.clt.ess.base.Constant;
 import com.clt.ess.dao.*;
 import com.clt.ess.entity.*;
 import com.clt.ess.utils.Location;
+import com.clt.ess.utils.ProcessPDF;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPReply;
@@ -34,6 +35,7 @@ import static com.clt.ess.utils.Base64Utils.*;
 import static com.clt.ess.utils.CutImageUtil.markImageBySingleText;
 import static com.clt.ess.utils.GetLocation.getLastKeyWord;
 import static com.clt.ess.utils.GetLocation.locationByBookMark;
+import static com.clt.ess.utils.ImageUtil.*;
 import static com.clt.ess.utils.Sign.*;
 import static com.clt.ess.utils.SocketUtils.wordToPdfClient;
 import static com.clt.ess.utils.uuidUtil.getUUID;
@@ -52,6 +54,8 @@ public class SendFileDataHandler {
     private IPersonDao personDao;
     @Autowired
     private IUserDao userDao;
+    @Autowired
+    private ISignatureLogDao signatureLogDao;
     @Autowired
     private IUnitRelationDao unitRelationDao;
 //    @Value("${Platform}")
@@ -78,6 +82,7 @@ public class SendFileDataHandler {
     public static String password;
 
     public static String WHITESIGNSYSTEMID;
+    public static String SerialNumber;
 
     private static void initData() {
         Properties prop = new Properties();
@@ -119,7 +124,9 @@ public class SendFileDataHandler {
                     case "WHITESIGNSYSTEMID":
                         WHITESIGNSYSTEMID =prop.getProperty(key);
                         continue;
-//                    default:break;
+                    case "SerialNumber":
+                        SerialNumber =prop.getProperty(key);
+                        continue;
                 }
             }
             in.close();
@@ -155,6 +162,31 @@ public class SendFileDataHandler {
         return  imgDataList;
     }
 
+    /**
+     *
+     * @param data  格式 {"signSerialNum":"11111111"}
+     * @return
+     */
+    @WebMethod
+    public String VerifySerialNum(String data){
+        JSONObject js = new JSONObject(data);
+        JSONObject result = new JSONObject();
+        String signSerialNum = js.getString("signSerialNum");
+        if(VerifySerialNumber(signSerialNum)){
+            SignatureLog signatureLog = signatureLogDao.findSignatureLogBySerNum(signSerialNum);
+            if (signatureLog == null){
+                result.put("code","101");
+                result.put("message","未找到签章记录");
+            }else{
+                result.put("code","200");
+                result.put("message",signatureLog.getSignTime());
+            }
+        }else{
+            result.put("code","102");
+            result.put("message","签章序列号未通过验证");
+        }
+        return result.toString();
+    }
 
     /**
      * 提供南京市OA根据身份证号或者
@@ -477,6 +509,7 @@ public class SendFileDataHandler {
             return result.toString();
         }
     }
+
     @WebMethod
     public String WebServerHandWritingVerifyJson(@WebParam(name = "jsonData") String jsonData){
         initData();
@@ -494,6 +527,7 @@ public class SendFileDataHandler {
         String plainText = jsonObject.getString("plainText");
         String SignSerialNum = jsonObject.getString("signSerialNum");
         String encodeType = jsonObject.getString("encodeType");
+
         int imgType = jsonObject.getInt("resultType");
         float imgW = jsonObject.getInt("imgW");
         float imgH = jsonObject.getInt("imgH");
@@ -1039,53 +1073,6 @@ public class SendFileDataHandler {
         return dataResult;
     }
 
-
-    private String notifyConvert(String fileName, String businessSysId) {
-        Map<String,Object> paras = new HashMap<String, Object>();
-        paras.put("fileName",fileName);
-        paras.put("systemId", businessSysId);
-        String sRet = HttpClient.doPost(Constant.createConvertLog_1,paras);
-        String[] stmp = sRet.split("@");
-        if(stmp.length != 3)
-        {
-            return null;
-        }
-        if(!stmp[0].equals("ESSB") || !stmp[2].equals("ESSE")){
-            return null;
-        }
-        if(stmp[1].equals("ERROR")){
-            return null;
-        }
-
-        String serialNo = stmp[1];
-        int iTry = 0;
-        String sPdfFile = "";
-        long t1=System.currentTimeMillis();
-        do{
-            try {
-                sleep(500);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            sRet = HttpClient.doGet(Constant.queryConvertState+"?fid=" + serialNo);
-            if(sRet.substring(0, 6).equals("ESSB@3")){
-                String[] sTmp2 = sRet.split("@");
-                sPdfFile = sTmp2[2];
-                break;
-            }
-            else{
-                iTry++;
-            }
-            if(iTry > 20)
-                break;
-        }while(true);
-        if(sPdfFile.equals("")){
-            return null;
-        }
-        return sPdfFile;
-
-    }
-
     /**
      * 保存文件
      * @param dataHandler 文件数据
@@ -1114,7 +1101,7 @@ public class SendFileDataHandler {
      */
     private int doSealInfo(SealInfo sealInfo,String businessSysId,String docType,String fileName ) throws
             Exception {
-        String signSerialNum = getUUID();
+        String signSerialNum = GetSerialNumber();
         int result = 0;
         //授权id
         String sjId ="";
@@ -1122,8 +1109,7 @@ public class SendFileDataHandler {
         String tjId = "";
         //全省统一人员id
         String provincialUserId  ="";
-
-        if(sealInfo.getsStaffID()==null){
+        if(sealInfo.getsStaffID()==null||"".equals(sealInfo.getsStaffID())){
             provincialUserId = businessSysId;
         }else{
             provincialUserId = sealInfo.getsStaffID();
@@ -1163,6 +1149,7 @@ public class SendFileDataHandler {
             //查找印章错误
             return 1;
         }
+
         //保存图片
         byte[] sealImg;
         if (seal.getSealImg() != null) {
@@ -1184,20 +1171,14 @@ public class SendFileDataHandler {
             newBufferedImage.createGraphics().drawImage(bufferedImage, 0, 0, Color.WHITE, null);
 
             ImageIO.write(newBufferedImage,"png",output);
-
             sealImg = output.toByteArray();
             output.close();
-
-
-
-
         }
 
         //保存证书
         decoderBase64File(seal.getCertificate().getPfxBase64(), pfxPath+signSerialNum+".pfx");
         //获取证书密码
         String pwd = seal.getCertificate().getCerPsw();
-
         //确认定位方式
         if(sealInfo.getLocationMode()==-1){
             //坐标定位
@@ -1239,6 +1220,16 @@ public class SendFileDataHandler {
             }
 
         }
+        //南京市局单位id
+        String unitId = "02560bcefbb-09fa-4f74-927e-ae0e3549a825";
+        Unit unit = unitDao.findUnitByUnitId(seal.getUnitId());
+        if (unitId.equals(unit.getParentUnitId())||unitId.equals(seal.getUnitId())){
+            if ("ok".equals(SerialNumber)&&sealInfo.getsSealType().contains("st16")){
+                boolean a = ProcessPDF.addPdfTextMark(fileName,
+                        "本页签章追溯码："+signSerialNum, 480,
+                        10,sealInfo.getPageNum());
+            }
+        }
         //判断是否骑缝章
         if(sealInfo.isBlPagingSeal()){
             //骑缝章
@@ -1262,7 +1253,9 @@ public class SendFileDataHandler {
      */
     private int doSealInfo_1(SealInfo_1 sealInfo,String businessSysId,String docType,String fileName ) throws
             Exception {
-        String signSerialNum = getUUID();
+        String signSerialNum = GetSerialNumber();
+
+
         int result = 0;
         //授权id
         String sjId ="";
@@ -1271,7 +1264,7 @@ public class SendFileDataHandler {
         //全省统一人员id
         String provincialUserId  ="";
 
-        if(sealInfo.getsStaffID()==null){
+        if(sealInfo.getsStaffID()==null||"".equals(sealInfo.getsStaffID())){
             provincialUserId = businessSysId;
         }else{
             provincialUserId = sealInfo.getsStaffID();
@@ -1330,6 +1323,7 @@ public class SendFileDataHandler {
             sealImg = output.toByteArray();
             output.close();
         }
+
         //保存证书
         decoderBase64File(seal.getCertificate().getPfxBase64(), pfxPath+signSerialNum+".pfx");
         //获取证书密码
@@ -1377,6 +1371,21 @@ public class SendFileDataHandler {
                 }
             }
         }
+
+        //南京市局单位id
+        String unitId = "02560bcefbb-09fa-4f74-927e-ae0e3549a825";
+        Unit unit = unitDao.findUnitByUnitId(seal.getUnitId());
+        if (unitId.equals(unit.getParentUnitId())||unitId.equals(seal.getUnitId())){
+            if ("ok".equals(SerialNumber)&&sealInfo.getsSealType().contains("st16")){
+
+                boolean a = ProcessPDF.addPdfTextMark(fileName,
+                        "本页签章追溯码："+signSerialNum, 480,
+                        10,sealInfo.getPageNum());
+//                //对公章图片进行添加防伪码操作
+//                sealImg = markImageByText(sealImg ,signSerialNum,Color.red);
+//                sealInfo.setiSealImgH(sealInfo.getiSealImgH()+14);
+            }
+        }
         //判断是否骑缝章
         if(sealInfo.getSignatureType()==1){
             //单个签章
@@ -1415,6 +1424,7 @@ public class SendFileDataHandler {
         paramMap.put("signSerialNum",signSerialNum);
         paramMap.put("unitId",unitId);
         paramMap.put("sealId",sealId);
+        System.out.println(paramMap);
         String HttpResult = HttpClient.doPost(url,paramMap);
         //返回数据格式{"EssResultPre":"ESSRESULT","verson":"1.0.0",'msg':'1'}\
         System.out.println("------------------------------------------------------------------------------------");
@@ -1464,7 +1474,6 @@ public class SendFileDataHandler {
             JSONObject jsonObject1 = jsonArray.getJSONObject(i);
 
             SealInfo_1 sealInfo = new SealInfo_1();
-
             sealInfo.setsKeyWords(jsonObject1.getString("sKeyWords"));
             sealInfo.setLocationMode(jsonObject1.getInt("locationMode"));
             sealInfo.setiOffsetX(jsonObject1.getInt("iOffsetX"));

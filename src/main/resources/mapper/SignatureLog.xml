@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.clt.ess.dao.ISignatureLogDao">
+
+    <resultMap type="SignatureLog" id="signatureLogMap">
+        <id property="signatureLogId" column="signatureLogId"/>
+        <result property="signSerialNum" column="signSerialNum"/>
+        <result property="signTime" column="signTime"/>
+    </resultMap>
+    <select id="findSignatureLogBySerNum"  resultMap="signatureLogMap">
+        SELECT signTime FROM signaturelog where signSerialNum = #{serNum}
+    </select>
+
+</mapper>
