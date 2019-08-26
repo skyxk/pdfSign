@@ -162,31 +162,31 @@ public class SendFileDataHandler {
         return  imgDataList;
     }
 
-    /**
-     *
-     * @param data  格式 {"signSerialNum":"11111111"}
-     * @return
-     */
-    @WebMethod
-    public String VerifySerialNum(String data){
-        JSONObject js = new JSONObject(data);
-        JSONObject result = new JSONObject();
-        String signSerialNum = js.getString("signSerialNum");
-        if(VerifySerialNumber(signSerialNum)){
-            SignatureLog signatureLog = signatureLogDao.findSignatureLogBySerNum(signSerialNum);
-            if (signatureLog == null){
-                result.put("code","101");
-                result.put("message","未找到签章记录");
-            }else{
-                result.put("code","200");
-                result.put("message",signatureLog.getSignTime());
-            }
-        }else{
-            result.put("code","102");
-            result.put("message","签章序列号未通过验证");
-        }
-        return result.toString();
-    }
+//    /**
+//     *
+//     * @param data  格式 {"signSerialNum":"11111111"}
+//     * @return
+//     */
+//    @WebMethod
+//    public String VerifySerialNum(String data){
+//        JSONObject js = new JSONObject(data);
+//        JSONObject result = new JSONObject();
+//        String signSerialNum = js.getString("signSerialNum");
+//        if(VerifySerialNumber(signSerialNum)){
+//            SignatureLog signatureLog = signatureLogDao.findSignatureLogBySerNum(signSerialNum);
+//            if (signatureLog == null){
+//                result.put("code","101");
+//                result.put("message","未找到签章记录");
+//            }else{
+//                result.put("code","200");
+//                result.put("message",signatureLog.getSignTime());
+//            }
+//        }else{
+//            result.put("code","102");
+//            result.put("message","签章序列号未通过验证");
+//        }
+//        return result.toString();
+//    }
 
     /**
      * 提供南京市OA根据身份证号或者
@@ -686,7 +686,7 @@ public class SendFileDataHandler {
 
 
     private String addMarkErrorText(String data) throws IOException {
-        byte[] img = markImageBySingleText(ESSGetBase64Decode(data), Color.red,"——————————————",null);
+        byte[] img = markImageBySingleText(ESSGetBase64Decode(data), Color.green,"——————————————",null);
         return ESSGetBase64Encode(img);
     }
 
@@ -809,6 +809,7 @@ public class SendFileDataHandler {
     @WebMethod
     public DataResult PDFSignature(@WebParam(name = "dataHandler") @XmlMimeType(value = "application/octet-stream")
                                                   DataHandler dataHandler, @WebParam(name = "jsonString") String jsonString) {
+        System.out.println(jsonString);
         initData();
         DataResult dataResult = new DataResult();
         dataResult.setResultType(true);
@@ -889,7 +890,7 @@ public class SendFileDataHandler {
                         switch (result1){
                             case 1:
                                 dataResult.setResultType(false);
-                                dataResult.setResultMessage("查找印章错误");
+                                dataResult.setResultMessage("无此印章或手写签名");
                                 break;
                             case 2:
                                 dataResult.setResultType(false);
@@ -941,6 +942,7 @@ public class SendFileDataHandler {
     @WebMethod
     public DataResult PDFSignatureOne(@WebParam(name = "dataHandler") @XmlMimeType(value = "application/octet-stream")
                                            DataHandler dataHandler, @WebParam(name = "jsonString") String jsonString) {
+        System.out.println(jsonString);
         initData();
         DataResult dataResult = new DataResult();
         dataResult.setResultType(true);
@@ -1021,7 +1023,7 @@ public class SendFileDataHandler {
                         switch (result1){
                             case 1:
                                 dataResult.setResultType(false);
-                                dataResult.setResultMessage("查找印章错误");
+                                dataResult.setResultMessage("无此印章或手写签名");
                                 return dataResult;
                             case 2:
                                 dataResult.setResultType(false);
@@ -1039,7 +1041,6 @@ public class SendFileDataHandler {
                                 dataResult.setResultType(false);
                                 dataResult.setResultMessage("未知错误");
                                 return dataResult;
-
                         }
                         if(result1!=0){
                             break;
@@ -1088,11 +1089,8 @@ public class SendFileDataHandler {
         }finally {
             IOUtils.closeQuietly(outputStream);
         }
-
         return true;
     }
-
-
     /**
      * 根据签章信息处理，并进行签章动作
      * @param sealInfo 签章信息
@@ -1115,41 +1113,45 @@ public class SendFileDataHandler {
             provincialUserId = sealInfo.getsStaffID();
         }
         //初始化印章
-        Seal seal =new Seal();
-        //判断是否手签
-        if(sealInfo.getsSealType().contains("st7")){
-            //如果是手签，根据全省统一人员id查找印章
-            Person person = personDao.findPersonByProvincialUserId(sealInfo.getsStaffID());
-            seal = sealDao.findSealByIdNum(person.getIdNum());
-        }else{
-            if(sealInfo.getsSealID()==null||"".equals(sealInfo.getsSealID())){
-                //公章，并且没有印章id,根据单位id和印章类型查找
-                UnitRelation unitRelation = unitRelationDao.findUnitRelation(sealInfo.getsOrgID());
-                if (unitRelation!=null){
-                    sealInfo.setsOrgID(unitRelation.getParentunitcode());
-                }
-                List<Unit> unitList = unitDao.findUnitByOrgId(sealInfo.getsOrgID(),businessSysId);
-                for (Unit unit :unitList){
-                    try{
-                        seal = sealDao.findSealByUnitAndType(sealInfo.getsSealType(),unit.getUnitId());
-                    }catch (Exception e){
-                        e.printStackTrace();
-                        return 1;
-                    }
-                    if(seal.getSealId() == null||"".equals(seal.getSealId())){
-                        break;
-                    }
-                }
+        Seal seal =null;
+        try{
+            //判断是否手签
+            if(sealInfo.getsSealType().contains("st7")){
+                //如果是手签，根据全省统一人员id查找印章
+                Person person = personDao.findPersonByProvincialUserId(sealInfo.getsStaffID());
+                seal = sealDao.findSealByIdNum(person.getIdNum());
             }else{
-                seal = sealDao.findSealById(sealInfo.getsSealID());
+                if(sealInfo.getsSealID()==null||"".equals(sealInfo.getsSealID())){
+                    //公章，并且没有印章id,根据单位id和印章类型查找
+                    UnitRelation unitRelation = unitRelationDao.findUnitRelation(sealInfo.getsOrgID());
+                    if (unitRelation!=null){
+                        sealInfo.setsOrgID(unitRelation.getParentunitcode());
+                    }
+                    List<Unit> unitList = unitDao.findUnitByOrgId(sealInfo.getsOrgID(),businessSysId);
+                    for (Unit unit :unitList){
+                        try{
+                            seal = sealDao.findSealByUnitAndType(sealInfo.getsSealType(),unit.getUnitId());
+                        }catch (Exception e){
+                            e.printStackTrace();
+                            return 1;
+                        }
+                        if(seal.getSealId() == null||"".equals(seal.getSealId())){
+                            break;
+                        }
+                    }
+                }else{
+                    seal = sealDao.findSealById(sealInfo.getsSealID());
+                }
             }
-        }
-        //判断印章是否为空
-        if(seal.getSealId() == null||"".equals(seal.getSealId())){
+            //判断印章是否为空
+            if(seal.getSealId() == null||"".equals(seal.getSealId())){
+                //查找印章错误
+                return 1;
+            }
+        }catch (Exception e){
             //查找印章错误
             return 1;
         }
-
         //保存图片
         byte[] sealImg;
         if (seal.getSealImg() != null) {
@@ -1218,7 +1220,6 @@ public class SendFileDataHandler {
                     return 4;
                 }
             }
-
         }
         //南京市局单位id
         String unitId = "02560bcefbb-09fa-4f74-927e-ae0e3549a825";
@@ -1270,32 +1271,43 @@ public class SendFileDataHandler {
             provincialUserId = sealInfo.getsStaffID();
         }
         //初始化印章
-        Seal seal =new Seal();
-        //判断是否手签
-        if(sealInfo.getsSealType().contains("st7")){
-            //如果是手签，根据全省统一人员id查找印章
-            Person person = personDao.findPersonByProvincialUserId(sealInfo.getsStaffID());
-            seal = sealDao.findSealByIdNum(person.getIdNum());
-        }else{
-            if(sealInfo.getsSealID()==null||"".equals(sealInfo.getsSealID())){
-                //公章，并且没有印章id,根据单位id和印章类型查找
-                UnitRelation unitRelation = unitRelationDao.findUnitRelation(sealInfo.getsOrgID());
-                if (unitRelation!=null){
-                    sealInfo.setsOrgID(unitRelation.getParentunitcode());
-                }
-                List<Unit> unitList = unitDao.findUnitByOrgId(sealInfo.getsOrgID(),businessSysId);
-                for (Unit unit :unitList){
-                    seal = sealDao.findSealByUnitAndType(sealInfo.getsSealType(),unit.getUnitId());
-                    if(seal.getSealId() == null||"".equals(seal.getSealId())){
-                        break;
-                    }
-                }
+        Seal seal =null;
+        try{
+
+            //判断是否手签
+            if(sealInfo.getsSealType().contains("st7")){
+                //如果是手签，根据全省统一人员id查找印章
+                Person person = personDao.findPersonByProvincialUserId(sealInfo.getsStaffID());
+                seal = sealDao.findSealByIdNum(person.getIdNum());
             }else{
-                seal = sealDao.findSealById(sealInfo.getsSealID());
+                if(sealInfo.getsSealID()==null||"".equals(sealInfo.getsSealID())){
+                    //公章，并且没有印章id,根据单位id和印章类型查找
+                    UnitRelation unitRelation = unitRelationDao.findUnitRelation(sealInfo.getsOrgID());
+                    if (unitRelation!=null){
+                        sealInfo.setsOrgID(unitRelation.getParentunitcode());
+                    }
+                    List<Unit> unitList = unitDao.findUnitByOrgId(sealInfo.getsOrgID(),businessSysId);
+                    for (Unit unit :unitList){
+                        try{
+                            seal = sealDao.findSealByUnitAndType(sealInfo.getsSealType(),unit.getUnitId());
+                        }catch (Exception e){
+                            e.printStackTrace();
+                            return 1;
+                        }
+                        if(seal.getSealId() == null||"".equals(seal.getSealId())){
+                            break;
+                        }
+                    }
+                }else{
+                    seal = sealDao.findSealById(sealInfo.getsSealID());
+                }
             }
-        }
-        //判断印章是否为空
-        if(seal.getSealId() == null||"".equals(seal.getSealId())){
+            //判断印章是否为空
+            if(seal.getSealId() == null||"".equals(seal.getSealId())){
+                //查找印章错误
+                return 1;
+            }
+        }catch (Exception e){
             //查找印章错误
             return 1;
         }

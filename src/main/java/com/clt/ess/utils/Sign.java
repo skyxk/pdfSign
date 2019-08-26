@@ -50,7 +50,7 @@ public class Sign {
                 cWidth = (int) width/pageNum;
                 cHeigth = (int) heigth;
                 //计算签章其实坐标
-                int x = pWidth-cWidth/2;
+                int x = pWidth-cWidth/2-30;
                 int y = pHeight/2;
 
                 addSeal(pdfFile,Base64Utils.ESSGetBase64Decode(ImageBase64List.get(num)),cWidth,cHeigth,
@@ -58,7 +58,6 @@ public class Sign {
                 //骑缝章有一个签署不成功则离开循环，签章错误
             }
         }
-
     }
 
     public static void addOverSealPage(String pdfPath, byte[] picPath, float width, float heigth,float x, float y,
