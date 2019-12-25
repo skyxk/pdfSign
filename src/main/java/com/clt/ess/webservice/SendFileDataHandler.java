@@ -38,6 +38,7 @@ import static com.clt.ess.utils.GetLocation.locationByBookMark;
 import static com.clt.ess.utils.ImageUtil.*;
 import static com.clt.ess.utils.Sign.*;
 import static com.clt.ess.utils.SocketUtils.wordToPdfClient;
+import static com.clt.ess.utils.dateUtil.getDate;
 import static com.clt.ess.utils.uuidUtil.getUUID;
 import static java.lang.Thread.sleep;
 
@@ -52,6 +53,8 @@ public class SendFileDataHandler {
     private IUnitDao unitDao;
     @Autowired
     private IPersonDao personDao;
+    @Autowired
+    private IErrorLogDao errorLogDao;
     @Autowired
     private IUserDao userDao;
     @Autowired
@@ -162,31 +165,31 @@ public class SendFileDataHandler {
         return  imgDataList;
     }
 
-//    /**
-//     *
-//     * @param data  格式 {"signSerialNum":"11111111"}
-//     * @return
-//     */
-//    @WebMethod
-//    public String VerifySerialNum(String data){
-//        JSONObject js = new JSONObject(data);
-//        JSONObject result = new JSONObject();
-//        String signSerialNum = js.getString("signSerialNum");
-//        if(VerifySerialNumber(signSerialNum)){
-//            SignatureLog signatureLog = signatureLogDao.findSignatureLogBySerNum(signSerialNum);
-//            if (signatureLog == null){
-//                result.put("code","101");
-//                result.put("message","未找到签章记录");
-//            }else{
-//                result.put("code","200");
-//                result.put("message",signatureLog.getSignTime());
-//            }
-//        }else{
-//            result.put("code","102");
-//            result.put("message","签章序列号未通过验证");
-//        }
-//        return result.toString();
-//    }
+    /**
+     *
+     * @param data  格式 {"signSerialNum":"11111111"}
+     * @return
+     */
+    @WebMethod
+    public String VerifySerialNum(String data){
+        JSONObject js = new JSONObject(data);
+        JSONObject result = new JSONObject();
+        String signSerialNum = js.getString("signSerialNum");
+        if(VerifySerialNumber(signSerialNum)){
+            SignatureLog signatureLog = signatureLogDao.findSignatureLogBySerNumZM(signSerialNum);
+            if (signatureLog == null){
+                result.put("code","101");
+                result.put("message","未找到签章记录");
+            }else{
+                result.put("code","200");
+                result.put("message",signatureLog.getSignTime());
+            }
+        }else{
+            result.put("code","102");
+            result.put("message","签章序列号未通过验证");
+        }
+        return result.toString();
+    }
 
     /**
      * 提供南京市OA根据身份证号或者
@@ -201,6 +204,8 @@ public class SendFileDataHandler {
 //        jsonObject.getFloat("sImgW");
 //        jsonObject.getFloat("sImgH");
 //        jsonObject.getString("sAuthInfo");
+
+
         JSONObject result = new JSONObject();
         result.put("code","");
         result.put("message","");
@@ -249,6 +254,7 @@ public class SendFileDataHandler {
         //南京市局单位id
         String unitId = "02560bcefbb-09fa-4f74-927e-ae0e3549a825";
         Unit unit = unitDao.findUnitByUnitId(seal.getUnitId());
+
         if (unitId.equals(unit.getParentUnitId())||unitId.equals(seal.getUnitId())){
             //如果查询的手写签名是南京市范围内的，则返回
             //获取图像字符节
@@ -318,6 +324,7 @@ public class SendFileDataHandler {
             result.put("message","没有权限");
             return result.toString();
         }
+
         return result.toString();
     }
     /**
@@ -393,14 +400,129 @@ public class SendFileDataHandler {
             return jsonObject.toString();
         }
 
-        if (!addSignLog(sSysID,sSysID,"","","","demo",signSerialNum,
-                seal.getSealId(),seal.getUnitId())){
+
+        SignatureLog signatureLog = new SignatureLog();
+        signatureLog.setSignatureLogId(getUUID());
+        signatureLog.setSignSerialNum(signSerialNum);
+        signatureLog.setSignTime(getDate());
+        signatureLog.setSealId(seal.getSealId());
+        signatureLog.setBusinessSysId(sSysID);
+        signatureLog.setSignUserId(sSysPersonID);
+        signatureLog.setUnitId(seal.getUnitId());
+        signatureLog.setTerminalType("服务器端");
+        signatureLog.setDocType("OA网页审批");
+        signatureLog.setProductType("ESSWEBSIGN V1.0");
+        signatureLog.setSafeHash("");
+        signatureLog.setFileTypeNum("127");
+        signatureLog.setSealTypeId(seal.getSealTypeId());
+
+        int result = signatureLogDao.addSignatureLogForOA(signatureLog);
+        if (result != 1){
             jsonObject.put("resultType","false");
             jsonObject.put("errorCode","0004");
             return jsonObject.toString();
         }
+
         return jsonObject.toString();
     }
+
+
+    /**
+     * 网页签章接口（暂时只支持手写签名签章）
+     * @param sSysID 业务系统id
+     * @param sOrgID 手签人标识，可以是江苏省统一人员id，也可以是系统内人员的身份证号。
+     * @param sPlain 需要签名的明文信息
+     * @param sAuthInfo 未使用参数 （待定义）
+     * @param sPlainEncodeType 签名编码格式
+     * @return JSON字符串
+     */
+    @WebMethod
+    public String WebServerSign(@WebParam(name = "sSysID") String sSysID,
+                                           @WebParam(name = "sOrgID") String sOrgID,
+                                           @WebParam(name = "sSealType") String sSealType,
+                                           @WebParam(name = "sPlain") String sPlain,
+                                           @WebParam(name = "sAuthInfo") String sAuthInfo,
+                                           @WebParam(name = "sPlainEncodeType") String sPlainEncodeType){
+        initData();
+        //新建json对象，作为返回信息
+        JSONObject jsonObject = new JSONObject();
+        //签章序列号 每次签章的序号，取uuid;保证唯一性
+        String signSerialNum = getUUID();
+        //根据身份证号查询印章数据
+        Seal seal = null;
+        //公章，并且没有印章id,根据单位id和印章类型查找
+        List<Unit> unitList = unitDao.findUnitByOrgId(sOrgID,sSysID);
+        for (Unit unit :unitList){
+            try{
+                seal = sealDao.findSealByUnitAndType(sSealType,unit.getUnitId());
+            }catch (Exception e){
+                e.printStackTrace();
+                jsonObject.put("resultType","false");
+                jsonObject.put("errorCode","0009");
+                return jsonObject.toString();
+            }
+            if(seal.getSealId() == null||"".equals(seal.getSealId())){
+                break;
+            }
+        }
+        if (seal==null){
+            //如果印章数据为空
+            jsonObject.put("resultType","false");
+            jsonObject.put("errorCode","0001");
+            return jsonObject.toString();
+        }
+        //获取图像字符节
+        byte[] bGif = ESSGetBase64Decode(seal.getSealImg().getSealImgGifBase64());
+        //获取证书字符节
+        byte[] bPfx = ESSGetBase64Decode(seal.getCertificate().getPfxBase64());
+        //获取证书密码
+        String pfxPwd = seal.getCertificate().getCerPsw();
+        //签名方法
+        WebSign ws = new WebSign();
+        try {
+            if(ws.SignData(sPlain, sPlainEncodeType,bPfx, pfxPwd,bGif)) {
+                jsonObject.put("resultType","true");
+                jsonObject.put("EncodeData",ws.EncodedData);
+                jsonObject.put("ImageData",ws.ImageData);
+                jsonObject.put("ImageID",ws.ImageID);
+                jsonObject.put("SignSerialNum",signSerialNum);
+            }else{
+                jsonObject.put("resultType","false");
+                jsonObject.put("errorCode",ws.ErrorCode);
+            }
+        } catch (IOException | GeneralSecurityException | CertificateException e) {
+            jsonObject.put("resultType","false");
+            jsonObject.put("errorCode","0002");
+            return jsonObject.toString();
+        }
+
+
+        SignatureLog signatureLog = new SignatureLog();
+        signatureLog.setSignatureLogId(getUUID());
+        signatureLog.setSignSerialNum(signSerialNum);
+        signatureLog.setSignTime(getDate());
+        signatureLog.setSealId(seal.getSealId());
+        signatureLog.setBusinessSysId(sSysID);
+        signatureLog.setSignUserId(sSysID);
+        signatureLog.setUnitId(seal.getUnitId());
+        signatureLog.setTerminalType("服务器端");
+        signatureLog.setDocType("安管系统签章");
+        signatureLog.setProductType("ESSWEBSIGN V1.0");
+        signatureLog.setSafeHash("");
+        signatureLog.setFileTypeNum("127");
+        signatureLog.setSealTypeId(seal.getSealTypeId());
+
+        int result = signatureLogDao.addSignatureLogForOA(signatureLog);
+        if (result != 1){
+            jsonObject.put("resultType","false");
+            jsonObject.put("errorCode","0004");
+            return jsonObject.toString();
+        }
+
+        return jsonObject.toString();
+    }
+
+
 
     @WebMethod
     public String WebServerHandWritingVerify(@WebParam(name = "encodeData") String encodeData,
@@ -411,6 +533,14 @@ public class SendFileDataHandler {
                                                @WebParam(name = "SignSerialNum") String SignSerialNum,
                                              @WebParam(name = "sAuthInfo") String sAuthInfo,
                                              @WebParam(name = "wantEncodeType") String wantEncodeType){
+
+//        ErrorLog errorLog  = new ErrorLog();
+//        errorLog.setTime(getDate());
+//        errorLog.setSysName("OA签章报文");
+//        errorLog.setErrorDetail("encodeData"+"|"+"imageData"+"|"+plainText+"|"+encodeType+"|"+imgType+"|"+SignSerialNum+"|"+sAuthInfo
+//                +"|"+wantEncodeType );
+//        errorLogDao.addErrorLog(errorLog);
+
         initData();
         JSONObject result = new JSONObject();
         String sealName ="";
@@ -420,6 +550,8 @@ public class SendFileDataHandler {
         String url ="";
         WebSign ws = new WebSign();
         if (!"".equals(encodeData)&&!"".equals(imageData)&&!"".equals(plainText)&&"".equals(SignSerialNum)){
+
+
             if(ws.VerifyData(plainText, encodeType,encodeData, imageData)) {
                 result.put("resultType","true");
                 result.put("gifBase64",ws.PictureData);
@@ -439,68 +571,163 @@ public class SendFileDataHandler {
                     result.put("gifBase64",Constant.errImg);
                 }
             }
+
         }
+
         if ("".equals(encodeData)&&"".equals(imageData)&&"".equals(plainText)&&!"".equals(SignSerialNum)){
-            url =Constant.essClientQuerySignLogBySerialNum+"?serialNum="+SignSerialNum;
-            //根据签章序列号获取签章日志
-            String HttpResult = HttpClient.doGet(url);
-            JSONObject jsonObject_1 = new JSONObject(HttpResult);
-            sealTime = jsonObject_1.getString("signTime");
-            String sealId = jsonObject_1.getString("sealId");
-            String businessSysId = jsonObject_1.getString("businessSysId");
-            Seal seal = sealDao.findSealById(sealId);
 
-            String idNum = seal.getSealHwIdNum();
-            Person person = personDao.findPersonByIdNum(idNum);
+//
+//            //根据签章序列号获取签章日志
+////            String HttpResult = HttpClient.doGet(url);
+//            SignatureLog signatureLog = signatureLogDao.findSignatureLogBySerNumForOA(SignSerialNum);
+//            if(signatureLog ==null){
+//                signatureLog = signatureLogDao.findSignatureLogBySerNumZM(SignSerialNum);
+//            }
+//            sealTime = signatureLog.getSignTime();
+//            String sealId = signatureLog.getSealId();
+//            String businessSysId = signatureLog.getBusinessSysId();
+//
+//            Seal seal = sealDao.findSealById(sealId);
+//
+//            String idNum = seal.getSealHwIdNum();
+//            Person person = personDao.findPersonByIdNum(idNum);
+//
+//            String signUserName = person.getPersonName();
+//            sealName = seal.getSealName();
+//            gifBase64 = seal.getSealImg().getSealImgGifBase64();
+//
+//            bsUnitName = unitDao.findBSUnitNameById(businessSysId);
+//            result.put("resultType","true");
+//            result.put("sealName",sealName);
+//            result.put("sealTime",sealTime);
+//            result.put("signUserName",signUserName);
+//            result.put("bsSystemName",bsUnitName);
 
-            String signUserName = person.getPersonName();
-            sealName = seal.getSealName();
-            gifBase64 = seal.getSealImg().getSealImgGifBase64();
-
-            bsUnitName = unitDao.findBSUnitNameById(businessSysId);
-            result.put("resultType","true");
-            result.put("sealName",sealName);
-            result.put("sealTime",sealTime);
-            result.put("signUserName",signUserName);
-            result.put("bsSystemName",bsUnitName);
-        }
-        if(!"".equals(encodeData)&&!"".equals(imageData)&&!"".equals(plainText)&&!"".equals(SignSerialNum)){
-            url =Constant.essClientQuerySignLogBySerialNum+"?serialNum="+SignSerialNum;
-            //根据签章序列号获取签章日志
-            String HttpResult = HttpClient.doGet(url);
-            JSONObject jsonObject_1 = new JSONObject(HttpResult);
-            sealTime = jsonObject_1.getString("signTime");
-            String sealId = jsonObject_1.getString("sealId");
-            String businessSysId = jsonObject_1.getString("businessSysId");
-            Seal seal = sealDao.findSealById(sealId);
-
-            String idNum = seal.getSealHwIdNum();
-            Person person = personDao.findPersonByIdNum(idNum);
-
-            String signUserName = person.getPersonName();
-            sealName = seal.getSealName();
-            gifBase64 = seal.getSealImg().getSealImgGifBase64();
-
-            bsUnitName = unitDao.findBSUnitNameById(businessSysId);
-            result.put("resultType","true");
-            result.put("sealName",sealName);
-            result.put("sealTime",sealTime);
-            result.put("signUserName",signUserName);
-            result.put("bsSystemName",bsUnitName);
             if(ws.VerifyData(plainText, encodeType,encodeData, imageData)) {
-                result.put("gifBase64",gifBase64);
+                result.put("resultType","true");
+                result.put("gifBase64",ws.PictureData);
+                result.put("sealTime",ws.SealTime);
+
+                result.put("sealName","");
+                result.put("signUserName","");
+                result.put("bsSystemName","");
+
             }else{
                 try {
                     result.put("resultType","false");
                     result.put("errorCode",ws.ErrorCode);
-                    result.put("gifBase64",addMarkErrorText(gifBase64));
+                    if("".equals(ws.PictureData)){
+                        result.put("gifBase64",Constant.errImg);
+                    }else{
+                        result.put("gifBase64",addMarkErrorText(ws.PictureData));
+                    }
+
+                    result.put("sealName","");
+                    result.put("signUserName","");
+                    result.put("bsSystemName","");
                 } catch (IOException e) {
                     result.put("resultType","false");
                     result.put("errorCode","10004");
                     result.put("gifBase64",Constant.errImg);
+
+                    result.put("sealName","");
+                    result.put("signUserName","");
+                    result.put("bsSystemName","");
                 }
             }
+
         }
+
+        if(!"".equals(encodeData)&&!"".equals(imageData)&&!"".equals(plainText)&&!"".equals(SignSerialNum)){
+
+//
+//            //根据签章序列号获取签章日志
+////            String HttpResult = HttpClient.doGet(url);
+//            long l1 = System.currentTimeMillis();
+//            SignatureLog signatureLog = signatureLogDao.findSignatureLogBySerNumForOA(SignSerialNum);
+//            if(signatureLog ==null){
+//                signatureLog = signatureLogDao.findSignatureLogBySerNumZM(SignSerialNum);
+//            }
+//            long l2 = System.currentTimeMillis();
+//            System.out.println(l2-l1);
+//
+//            sealTime = signatureLog.getSignTime();
+//            String sealId = signatureLog.getSealId();
+//            String businessSysId = signatureLog.getBusinessSysId();
+//
+//            Seal seal = sealDao.findSealById(sealId);
+//
+//            String idNum = seal.getSealHwIdNum();
+//            Person person = personDao.findPersonByIdNum(idNum);
+//
+//            String signUserName = person.getPersonName();
+//            sealName = seal.getSealName();
+//            gifBase64 = seal.getSealImg().getSealImgGifBase64();
+//
+//            bsUnitName = unitDao.findBSUnitNameById(businessSysId);
+//
+//            result.put("resultType","true");
+//            result.put("sealName",sealName);
+//            result.put("sealTime",sealTime);
+//            result.put("signUserName",signUserName);
+//            result.put("bsSystemName",bsUnitName);
+//
+//            if(ws.VerifyData(plainText, encodeType,encodeData, imageData)) {
+//                result.put("gifBase64",gifBase64);
+//            }else{
+//                try {
+//                    result.put("resultType","false");
+//                    result.put("errorCode",ws.ErrorCode);
+//                    result.put("gifBase64",addMarkErrorText(gifBase64));
+//                } catch (IOException e) {
+//                    result.put("resultType","false");
+//                    result.put("errorCode","10004");
+//                    result.put("gifBase64",Constant.errImg);
+//                }
+//            }
+//
+            if(ws.VerifyData(plainText, encodeType,encodeData, imageData)) {
+                result.put("resultType","true");
+                result.put("gifBase64",ws.PictureData);
+                result.put("sealTime",ws.SealTime);
+
+                result.put("sealName","");
+                result.put("signUserName","");
+                result.put("bsSystemName","");
+
+            }else{
+                try {
+                    result.put("resultType","false");
+                    result.put("errorCode",ws.ErrorCode);
+                    if("".equals(ws.PictureData)){
+                        result.put("gifBase64",Constant.errImg);
+                    }else{
+                        result.put("gifBase64",addMarkErrorText(ws.PictureData));
+                    }
+
+                    result.put("sealName","");
+                    result.put("signUserName","");
+                    result.put("bsSystemName","");
+                } catch (IOException e) {
+                    result.put("resultType","false");
+                    result.put("errorCode","10004");
+                    result.put("gifBase64",Constant.errImg);
+
+                    result.put("sealName","");
+                    result.put("signUserName","");
+                    result.put("bsSystemName","");
+                }
+            }
+
+        }
+//        if ("false".equals(result.getString("resultType"))){
+//            ErrorLog errorLog1  = new ErrorLog();
+//            errorLog1.setTime(getDate());
+//            errorLog1.setSysName("OA签章错误报文");
+//            errorLog1.setErrorDetail(SignSerialNum);
+//            errorLogDao.addErrorLog(errorLog1);
+//        }
+
         if (imgType ==0){
             return result.toString();
         }else if (imgType == 1){
@@ -508,10 +735,12 @@ public class SendFileDataHandler {
         }else{
             return result.toString();
         }
+
     }
 
     @WebMethod
     public String WebServerHandWritingVerifyJson(@WebParam(name = "jsonData") String jsonData){
+
         initData();
         JSONObject result = new JSONObject();
         String sealName ="";
@@ -556,13 +785,28 @@ public class SendFileDataHandler {
             }
         }
         if ("".equals(encodeData)&&"".equals(imageData)&&"".equals(plainText)&&!"".equals(SignSerialNum)){
+
             url =Constant.essClientQuerySignLogBySerialNum+"?serialNum="+SignSerialNum;
             //根据签章序列号获取签章日志
-            String HttpResult = HttpClient.doGet(url);
-            JSONObject jsonObject_1 = new JSONObject(HttpResult);
-            sealTime = jsonObject_1.getString("signTime");
-            String sealId = jsonObject_1.getString("sealId");
-            String businessSysId = jsonObject_1.getString("businessSysId");
+//            String HttpResult = HttpClient.doGet(url);
+            long l1 = System.currentTimeMillis();
+            SignatureLog signatureLog = signatureLogDao.findSignatureLogBySerNumForOA(SignSerialNum);
+            if(signatureLog ==null){
+                signatureLog = signatureLogDao.findSignatureLogBySerNumZM(SignSerialNum);
+            }
+            long l2 = System.currentTimeMillis();
+            System.out.println(l2-l1);
+
+//            JSONObject jsonObject_1 = new JSONObject(HttpResult);
+//            sealTime = jsonObject_1.getString("signTime");
+//            String sealId = jsonObject_1.getString("sealId");
+//            String businessSysId = jsonObject_1.getString("businessSysId");
+
+            sealTime = signatureLog.getSignTime();
+            String sealId = signatureLog.getSealId();
+            String businessSysId = signatureLog.getBusinessSysId();
+
+
             Seal seal = sealDao.findSealById(sealId);
 
             String idNum = seal.getSealHwIdNum();
@@ -580,29 +824,42 @@ public class SendFileDataHandler {
             result.put("bsSystemName",bsUnitName);
         }
         if(!"".equals(encodeData)&&!"".equals(imageData)&&!"".equals(plainText)&&!"".equals(SignSerialNum)){
+
             url =Constant.essClientQuerySignLogBySerialNum+"?serialNum="+SignSerialNum;
             //根据签章序列号获取签章日志
-            String HttpResult = HttpClient.doGet(url);
-            JSONObject jsonObject_1 = new JSONObject(HttpResult);
-            sealTime = jsonObject_1.getString("signTime");
-            String sealId = jsonObject_1.getString("sealId");
-            String businessSysId = jsonObject_1.getString("businessSysId");
+//            String HttpResult = HttpClient.doGet(url);
+            long l1 = System.currentTimeMillis();
+            SignatureLog signatureLog = signatureLogDao.findSignatureLogBySerNumForOA(SignSerialNum);
+            if(signatureLog ==null){
+                signatureLog = signatureLogDao.findSignatureLogBySerNumZM(SignSerialNum);
+            }
+            long l2 = System.currentTimeMillis();
+            System.out.println(l2-l1);
+
+//            JSONObject jsonObject_1 = new JSONObject(HttpResult);
+//            sealTime = jsonObject_1.getString("signTime");
+//            String sealId = jsonObject_1.getString("sealId");
+//            String businessSysId = jsonObject_1.getString("businessSysId");
+
+            sealTime = signatureLog.getSignTime();
+            String sealId = signatureLog.getSealId();
+            String businessSysId = signatureLog.getBusinessSysId();
+
+
             Seal seal = sealDao.findSealById(sealId);
 
             String idNum = seal.getSealHwIdNum();
             Person person = personDao.findPersonByIdNum(idNum);
-
             String signUserName = person.getPersonName();
             sealName = seal.getSealName();
             gifBase64 = seal.getSealImg().getSealImgGifBase64();
-
-
             bsUnitName = unitDao.findBSUnitNameById(businessSysId);
             result.put("resultType","true");
             result.put("sealName",sealName);
             result.put("sealTime",sealTime);
             result.put("signUserName",signUserName);
             result.put("bsSystemName",bsUnitName);
+
             if(ws.VerifyData(plainText, encodeType,encodeData, imageData)) {
                 result.put("gifBase64",gifBase64);
             }else{
@@ -681,9 +938,6 @@ public class SendFileDataHandler {
             return result.toString();
         }
     }
-
-
-
 
     private String addMarkErrorText(String data) throws IOException {
         byte[] img = markImageBySingleText(ESSGetBase64Decode(data), Color.green,"——————————————",null);
@@ -809,7 +1063,12 @@ public class SendFileDataHandler {
     @WebMethod
     public DataResult PDFSignature(@WebParam(name = "dataHandler") @XmlMimeType(value = "application/octet-stream")
                                                   DataHandler dataHandler, @WebParam(name = "jsonString") String jsonString) {
-        System.out.println(jsonString);
+
+        ErrorLog errorLog = new ErrorLog();
+        errorLog.setTime(getDate());
+        errorLog.setSysName("专卖签章错误报文");
+        errorLog.setErrorDetail(jsonString);
+
         initData();
         DataResult dataResult = new DataResult();
         dataResult.setResultType(true);
@@ -928,12 +1187,13 @@ public class SendFileDataHandler {
             dataResult.setResultType(false);
             dataResult.setResultMessage("签章信息确实");
         }
-
         if(dataResult.getResultType()){
             System.out.println("签章成功"+new Date());
             dataResult.setResultMessage("签章成功");
             DataSource dataSource = new FileDataSource(source);
             dataResult.setDataHandler(new DataHandler(dataSource));
+        }else {
+            errorLogDao.addErrorLog(errorLog);
         }
         return dataResult;
     }
@@ -942,8 +1202,13 @@ public class SendFileDataHandler {
     @WebMethod
     public DataResult PDFSignatureOne(@WebParam(name = "dataHandler") @XmlMimeType(value = "application/octet-stream")
                                            DataHandler dataHandler, @WebParam(name = "jsonString") String jsonString) {
-        System.out.println(jsonString);
+        ErrorLog errorLog = new ErrorLog();
+        errorLog.setTime(getDate());
+        errorLog.setSysName("专卖签章错误报文");
+        errorLog.setErrorDetail(jsonString);
+
         initData();
+
         DataResult dataResult = new DataResult();
         dataResult.setResultType(true);
         File source = null;
@@ -995,8 +1260,6 @@ public class SendFileDataHandler {
                         boolean wordToPdfResult = wordToPdfClient(fileName);
                         //下载文件
                         if (wordToPdfResult){
-
-
                             fileName = uuid+".pdf";
                             downloadFile(fileName,FtpPath+fileName);
                         }else{
@@ -1024,23 +1287,18 @@ public class SendFileDataHandler {
                             case 1:
                                 dataResult.setResultType(false);
                                 dataResult.setResultMessage("无此印章或手写签名");
-                                return dataResult;
                             case 2:
                                 dataResult.setResultType(false);
                                 dataResult.setResultMessage("保存图片错误");
-                                return dataResult;
                             case 3:
                                 dataResult.setResultType(false);
                                 dataResult.setResultMessage("书签定位错误");
-                                return dataResult;
                             case 4:
                                 dataResult.setResultType(false);
                                 dataResult.setResultMessage("关键字定位错误");
-                                return dataResult;
                             case 5:
                                 dataResult.setResultType(false);
                                 dataResult.setResultMessage("未知错误");
-                                return dataResult;
                         }
                         if(result1!=0){
                             break;
@@ -1051,18 +1309,15 @@ public class SendFileDataHandler {
                     e.printStackTrace();
                     dataResult.setResultType(false);
                     dataResult.setResultMessage("签章过程异常");
-                    return dataResult;
                 }
             }else{
                 dataResult.setResultType(false);
                 dataResult.setResultMessage("业务系统查询失败");
-                return dataResult;
             }
 
         }else {
             dataResult.setResultType(false);
             dataResult.setResultMessage("签章信息确实");
-            return dataResult;
         }
 
         if(dataResult.getResultType()){
@@ -1070,6 +1325,8 @@ public class SendFileDataHandler {
             dataResult.setResultMessage("签章成功");
             DataSource dataSource = new FileDataSource(source);
             dataResult.setDataHandler(new DataHandler(dataSource));
+        }else {
+            errorLogDao.addErrorLog(errorLog);
         }
         return dataResult;
     }
@@ -1221,21 +1478,24 @@ public class SendFileDataHandler {
                 }
             }
         }
-        //南京市局单位id
-        String unitId = "02560bcefbb-09fa-4f74-927e-ae0e3549a825";
-        Unit unit = unitDao.findUnitByUnitId(seal.getUnitId());
-        if (unitId.equals(unit.getParentUnitId())||unitId.equals(seal.getUnitId())){
-            if ("ok".equals(SerialNumber)&&sealInfo.getsSealType().contains("st16")){
-                boolean a = ProcessPDF.addPdfTextMark(fileName,
-                        "本页签章追溯码："+signSerialNum, 480,
-                        10,sealInfo.getPageNum());
-            }
-        }
+
         //判断是否骑缝章
         if(sealInfo.isBlPagingSeal()){
+
+
             //骑缝章
             addOverSeal(fileName,sealImg,pfxPath+signSerialNum+".pfx",pwd,signSerialNum,sealInfo.getiSealImgW(),sealInfo.getiSealImgH());
         }else{
+            //南京市局单位id
+            String unitId = "02560bcefbb-09fa-4f74-927e-ae0e3549a825";
+            Unit unit = unitDao.findUnitByUnitId(seal.getUnitId());
+            if (unitId.equals(unit.getParentUnitId())||unitId.equals(seal.getUnitId())){
+                if ("ok".equals(SerialNumber)&&sealInfo.getsSealType().contains("st16")){
+                    boolean a = ProcessPDF.addPdfTextMark(fileName,
+                            "本页签章追溯码："+signSerialNum, 480,
+                            10,sealInfo.getPageNum());
+                }
+            }
             //单个签章
             addSeal(fileName,sealImg,sealInfo.getiSealImgW(),sealInfo.getiSealImgH(),sealInfo.getPageNum(),
                     sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),pfxPath+signSerialNum+".pfx",pwd,signSerialNum);
@@ -1383,23 +1643,18 @@ public class SendFileDataHandler {
                 }
             }
         }
-
-        //南京市局单位id
-        String unitId = "02560bcefbb-09fa-4f74-927e-ae0e3549a825";
-        Unit unit = unitDao.findUnitByUnitId(seal.getUnitId());
-        if (unitId.equals(unit.getParentUnitId())||unitId.equals(seal.getUnitId())){
-            if ("ok".equals(SerialNumber)&&sealInfo.getsSealType().contains("st16")){
-
-                boolean a = ProcessPDF.addPdfTextMark(fileName,
-                        "本页签章追溯码："+signSerialNum, 480,
-                        10,sealInfo.getPageNum());
-//                //对公章图片进行添加防伪码操作
-//                sealImg = markImageByText(sealImg ,signSerialNum,Color.red);
-//                sealInfo.setiSealImgH(sealInfo.getiSealImgH()+14);
-            }
-        }
         //判断是否骑缝章
         if(sealInfo.getSignatureType()==1){
+            //南京市局单位id
+            String unitId = "02560bcefbb-09fa-4f74-927e-ae0e3549a825";
+            Unit unit = unitDao.findUnitByUnitId(seal.getUnitId());
+            if (unitId.equals(unit.getParentUnitId())||unitId.equals(seal.getUnitId())){
+                if ("ok".equals(SerialNumber)&&sealInfo.getsSealType().contains("st16")){
+                    boolean a = ProcessPDF.addPdfTextMark(fileName,
+                            "本页签章追溯码："+signSerialNum, 480,
+                            10,sealInfo.getPageNum());
+                }
+            }
             //单个签章
             addSeal(fileName,sealImg,sealInfo.getiSealImgW(),sealInfo.getiSealImgH(),sealInfo.getPageNum(),
                     sealInfo.getiOffsetX(), sealInfo.getiOffsetY(),pfxPath+signSerialNum+".pfx",pwd,signSerialNum);

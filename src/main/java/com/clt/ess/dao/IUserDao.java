@@ -1,6 +1,4 @@
 package com.clt.ess.dao;
-
-
 import com.clt.ess.entity.User;
 
 import java.util.List;

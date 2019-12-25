@@ -7,9 +7,31 @@
         <id property="signatureLogId" column="signatureLogId"/>
         <result property="signSerialNum" column="signSerialNum"/>
         <result property="signTime" column="signTime"/>
+        <result property="sealId" column="sealId"/>
+        <result property="businessSysId" column="businessSysId"/>
+        <result property="signUserId" column="signUserId"/>
+        <result property="unitId" column="unitId"/>
+        <result property="terminalType" column="terminalType"/>
+        <result property="docType" column="docType"/>
+        <result property="productType" column="productType"/>
+        <result property="safeHash" column="safeHash"/>
+        <result property="fileTypeNum" column="fileTypeNum"/>
+        <result property="sealTypeId" column="sealTypeId"/>
     </resultMap>
-    <select id="findSignatureLogBySerNum"  resultMap="signatureLogMap">
-        SELECT signTime FROM signaturelog where signSerialNum = #{serNum}
+    <select id="findSignatureLogBySerNumForOA"  resultMap="signatureLogMap">
+        SELECT signatureLogId,signSerialNum,signTime,sealId,businessSysId FROM signaturelog_oa where signSerialNum = #{serNum}
     </select>
 
+    <select id="findSignatureLogBySerNumZM"  resultMap="signatureLogMap">
+        SELECT * FROM signaturelog where signSerialNum = #{serNum}
+    </select>
+
+    <insert id="addSignatureLogForOA"  keyProperty="signatureLogId" parameterType="SignatureLog" >
+        INSERT INTO
+            signaturelog_oa(signatureLogId,signSerialNum,signTime,sealId,businessSysId,signUserId,unitId,
+                         terminalType,docType,productType,safeHash,fileTypeNum,sealTypeId)
+        VALUES
+        (#{signatureLogId},#{signSerialNum},#{signTime},#{sealId},#{businessSysId},#{signUserId},#{unitId},
+         #{terminalType},#{docType},#{productType},#{safeHash},#{fileTypeNum},#{sealTypeId})
+    </insert>
 </mapper>

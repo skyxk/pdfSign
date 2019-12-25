@@ -92,7 +92,6 @@ public class Sign {
             Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
             InputStream inp = null;
             //初始化盖章的私钥和证书 和签名的图片信息
-
             Image pic = Image.getInstance(picPath);
             KeyStore ks = KeyStore.getInstance("PKCS12");
             in = new FileInputStream(pdxPath);
@@ -150,10 +149,4 @@ public class Sign {
 //      file.getAbsolutePath();
     }
 
-    public static void main(String[] args) throws IOException {
-
-        File source = new File("E:\\temp\\demo.pdf");
-        File dest = new File("E:\\temp\\demo1.pdf");
-        Files.copy(source.toPath(), dest.toPath());
-    }
 }
